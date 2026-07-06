@@ -1,0 +1,197 @@
+/**
+ * @file noteData.ts
+ * @description Handles CRUD database operations for Note records in IndexedDB.
+ * Supports retrieval scoped to workspaces, specific folders, or at the workspace root.
+ * 
+ * @usage
+ * ```ts
+ * import { createNote, updateNote, getNote } from './noteData';
+ * const newNote = await createNote({ title: 'My Note', body: 'Hello' });
+ * ```
+ */
+
+import Dexie from 'dexie';
+
+import type { NoteRecord, CreateNoteInput, UpdateNoteInput } from './noteTypes';
+import { generateEntityId } from '../../../../shared-components/utils';
+import { db } from '../../../../storage/indexDB/dbConfig';
+import { getSmartDefaultWorkspace } from '../../../../storage/localStorage/lastUsedWorkspace';
+import { normalizeNoteBody } from './noteHelpers';
+
+/**
+ * Creates a new note record.
+ */
+export async function createNote(input: CreateNoteInput): Promise<NoteRecord> {
+  const defaultWorkspace = input.workspaceId
+    ? null
+    : await getSmartDefaultWorkspace();
+
+  const workspaceId = input.workspaceId ?? defaultWorkspace?.id;
+
+  if (!workspaceId) {
+    throw new Error('A workspace is required.');
+  }
+
+  const now = Date.now();
+  const folderId = input.folderId ?? null;
+
+  const note: NoteRecord = {
+    id: generateEntityId('note'),
+    workspaceId,
+    folderId,
+
+    title: input.title.trim() || 'Untitled Note',
+    body: normalizeNoteBody(input.body),
+    tagIds: input.tagIds ?? [],
+
+    createdAt: now,
+    updatedAt: now,
+    deletedAt: null,
+  };
+
+  try {
+    await db.notes.add(note);
+    return note;
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown database error';
+    console.error('[noteData.createNote] Failed:', message);
+    throw error;
+  }
+}
+
+export class ConflictError extends Error {
+  remoteNote?: NoteRecord;
+
+  constructor(message: string, remoteNote?: NoteRecord) {
+    super(message);
+    this.name = 'ConflictError';
+    this.remoteNote = remoteNote;
+  }
+}
+
+/**
+ * Updates an existing note record.
+ */
+export async function updateNote(noteId: string, input: UpdateNoteInput): Promise<NoteRecord> {
+  const changes: Partial<NoteRecord> = {
+    updatedAt: Date.now(),
+  };
+
+  if (input.title !== undefined) changes.title = input.title.trim() || 'Untitled Note';
+  if (input.body !== undefined) changes.body = normalizeNoteBody(input.body);
+  if (input.workspaceId !== undefined) changes.workspaceId = input.workspaceId;
+  if (input.folderId !== undefined) changes.folderId = input.folderId;
+  if (input.tagIds !== undefined) changes.tagIds = input.tagIds;
+
+  try {
+    return await db.transaction('rw', db.notes, async () => {
+      const existing = await db.notes.get(noteId);
+      if (!existing) {
+        throw new Error('Note not found.');
+      }
+
+      // Conflict detection
+      if (input.expectedUpdatedAt !== undefined && existing.updatedAt !== input.expectedUpdatedAt) {
+        throw new ConflictError('Note was modified in another tab.', existing);
+      }
+
+      await db.notes.update(noteId, changes);
+      return { ...existing, ...changes } as NoteRecord;
+    });
+  } catch (error: unknown) {
+    if (error instanceof ConflictError) throw error;
+    const message = error instanceof Error ? error.message : 'Unknown database error';
+    console.error('[noteData.updateNote] Failed:', message);
+    throw error;
+  }
+}
+
+/**
+ * Retrieves a specific Note by its ID.
+ */
+export async function getNote(id: string): Promise<NoteRecord | undefined> {
+  try {
+    return await db.notes.get(id);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown database error';
+    console.error(`[noteData.getNote] Failed: ${message}`);
+    throw error;
+  }
+}
+
+/**
+ * Retrieves all Notes inside a specific Workspace (regardless of folder).
+ */
+export async function getNotesForWorkspace(workspaceId: string): Promise<NoteRecord[]> {
+  try {
+    return await db.notes
+      .where('[workspaceId+updatedAt]')
+      .between([workspaceId, Dexie.minKey], [workspaceId, Dexie.maxKey])
+      .reverse()
+      .toArray();
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown database error';
+    console.error(`[noteData.getNotesForWorkspace] Failed: ${message}`);
+    throw error;
+  }
+}
+
+/**
+ * Retrieves all Notes that are strictly at the ROOT of a workspace (folderId is null).
+ */
+export async function getNotesForWorkspaceRoot(workspaceId: string): Promise<NoteRecord[]> {
+  try {
+    return await db.notes
+      .where('[workspaceId+folderId+updatedAt]')
+      .between([workspaceId, null, Dexie.minKey], [workspaceId, null, Dexie.maxKey])
+      .reverse()
+      .toArray();
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown database error';
+    console.error(`[noteData.getNotesForWorkspaceRoot] Failed: ${message}`);
+    throw error;
+  }
+}
+
+/**
+ * Retrieves all Notes that belong to a specific Folder.
+ */
+export async function getNotesForFolder(workspaceId: string, folderId: string): Promise<NoteRecord[]> {
+  try {
+    return await db.notes
+      .where('[workspaceId+folderId+updatedAt]')
+      .between([workspaceId, folderId, Dexie.minKey], [workspaceId, folderId, Dexie.maxKey])
+      .reverse()
+      .toArray();
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown database error';
+    console.error(`[noteData.getNotesForFolder] Failed: ${message}`);
+    throw error;
+  }
+}
+
+/**
+ * Deletes a Note from the Dexie database.
+ */
+export async function deleteNote(noteId: string): Promise<void> {
+  try {
+    await db.notes.delete(noteId);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown database error';
+    console.error('[noteData.deleteNote] Failed:', message);
+    throw error;
+  }
+}
+
+/**
+ * Retrieves all notes across the entire database.
+ */
+export async function getAllNotes(): Promise<NoteRecord[]> {
+  try {
+    return await db.notes.orderBy('updatedAt').reverse().toArray();
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown database error';
+    console.error(`[noteData.getAllNotes] Failed: ${message}`);
+    throw error;
+  }
+}

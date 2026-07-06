@@ -1,0 +1,29 @@
+{
+  "extends": "@extension/tsconfig/base",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@src/*": ["src/*"],
+      "@private-features/*": [
+        "src/components/OrganizationPanel/*",
+        "src/components/OrganizationPanel/private-mocks/*"
+      ],
+      "@private-providers/*": ["../../storage/_private/API/storage/providers/*"],
+      "@private-services/*": ["../../storage/_private/API/services/*"],
+      "@extension/ui": ["../../packages/ui/index.ts"],
+      "@extension/ui/*": ["../../packages/ui/*"]
+    },
+    "types": ["chrome", "node"],
+    "jsx": "react-jsx",
+    "esModuleInterop": true
+  },
+  "include": [
+    "src",
+    "vite.config.mts",
+    "../../shared-components",
+    "../../settings",
+    "../../storage",
+    "../../allObjectFolder",
+    "../../welcomeGuide"
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "extends": "../../packages/tsconfig/base.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@src/*": ["src/*"],
+      "@extension/ui": ["../../packages/ui/index.ts"],
+      "@extension/ui/*": ["../../packages/ui/*"]
+    },
+    "types": ["chrome", "node"],
+    "jsx": "react-jsx",
+    "esModuleInterop": true
+  },
+  "include": ["src", "vite.config.mts"]
+}

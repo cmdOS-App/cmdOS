@@ -1,0 +1,76 @@
+export type ThemeId = 'default-dark' | 'ocean-blue' | string;
+
+// --- Theme Storage ---
+export const getStoredThemeId = async (): Promise<ThemeId> => {
+  try {
+    const chromeAny = (window as any).chrome;
+    if (chromeAny?.storage?.local) {
+      const result = await new Promise<any>(resolve => chromeAny.storage.local.get(['appearance-theme'], resolve));
+      return result['appearance-theme'] || 'ocean-blue';
+    }
+  } catch (e) {
+    console.error('Failed to get stored theme ID:', e);
+  }
+  return 'ocean-blue';
+};
+
+export const setStoredThemeId = async (themeId: ThemeId): Promise<void> => {
+  try {
+    const chromeAny = (window as any).chrome;
+    if (chromeAny?.storage?.local) {
+      await new Promise<void>(resolve => chromeAny.storage.local.set({ 'appearance-theme': themeId }, resolve));
+    }
+  } catch (e) {
+    console.error('Failed to store theme ID:', e);
+  }
+};
+
+// --- Wallpaper Storage ---
+export const getStoredWallpaperId = async (): Promise<string> => {
+  try {
+    const chromeAny = (window as any).chrome;
+    if (chromeAny?.storage?.local) {
+      const result = await new Promise<any>(resolve => chromeAny.storage.local.get(['appearance-wallpaper'], resolve));
+      return result['appearance-wallpaper'] || 'default-wallpaper.png';
+    }
+  } catch (e) {
+    console.error('Failed to get stored wallpaper ID:', e);
+  }
+  return 'default-wallpaper.png';
+};
+
+export const setStoredWallpaperId = async (wallpaperId: string): Promise<void> => {
+  try {
+    const chromeAny = (window as any).chrome;
+    if (chromeAny?.storage?.local) {
+      await new Promise<void>(resolve => chromeAny.storage.local.set({ 'appearance-wallpaper': wallpaperId }, resolve));
+    }
+  } catch (e) {
+    console.error('Failed to store wallpaper ID:', e);
+  }
+};
+
+// --- Custom Wallpaper Base64 Storage ---
+export const getCustomWallpaperBase64 = async (): Promise<string> => {
+  try {
+    const chromeAny = (window as any).chrome;
+    if (chromeAny?.storage?.local) {
+      const result = await new Promise<any>(resolve => chromeAny.storage.local.get(['custom-wallpaper-base64'], resolve));
+      return result['custom-wallpaper-base64'] || '';
+    }
+  } catch (e) {
+    console.error('Failed to get custom wallpaper base64:', e);
+  }
+  return '';
+};
+
+export const setCustomWallpaperBase64 = async (base64: string): Promise<void> => {
+  try {
+    const chromeAny = (window as any).chrome;
+    if (chromeAny?.storage?.local) {
+      await new Promise<void>(resolve => chromeAny.storage.local.set({ 'custom-wallpaper-base64': base64 }, resolve));
+    }
+  } catch (e) {
+    console.error('Failed to store custom wallpaper base64:', e);
+  }
+};

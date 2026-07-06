@@ -1,0 +1,38 @@
+/**
+ * @file todoTypes.ts
+ * @description Defines TypeScript interfaces for the Todo entity, references to other entities
+ * (notes, snippets, links, etc.), schedules (one-time/recurring), and recurring periods.
+ * 
+ * @usage
+ * ```ts
+ * import type { TodoRecord, TodoReference } from './todoTypes';
+ * ```
+ */
+
+export type TodoReferenceType = 'note' | 'prompt' | 'link' | 'snippet' | 'chat_agent';
+
+
+export interface TodoReference {
+  type: TodoReferenceType;
+  id: string;
+}
+
+export type ScheduleType = 'one-time' | 'recurring';
+export type RecurringType = 'daily' | 'weekly' | 'monthly';
+
+export interface TodoRecord {
+  id: string; // todoId
+  name: string; // todoName
+  description?: string; // Add description for the UI
+  references: TodoReference[];
+  isDone: boolean;
+  
+  scheduleType: ScheduleType;
+  recurringType?: RecurringType;
+  scheduleTime: number; // Unix timestamp in milliseconds
+  
+  createdAt: number;
+  updatedAt: number;
+}
+
+

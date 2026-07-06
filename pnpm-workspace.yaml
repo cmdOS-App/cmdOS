@@ -1,0 +1,4 @@
+packages:
+  - 'background'
+  - 'src/pages/*'
+  - 'packages/*'

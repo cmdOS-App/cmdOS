@@ -1,0 +1,25 @@
+{
+  "extends": "@extension/tsconfig/app",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@src/*": ["src/*"],
+      "@private-providers/*": ["../src/storage/_private/API/storage/providers/*"],
+      "@private-services/*": ["../src/storage/_private/API/services/*"],
+      "@config/*": ["src/config/*"],
+
+      "@automation/*": ["src/automation/*"],
+      "@todos/*": ["src/todos/*"],
+      "@sessions/*": ["src/sessions/*"],
+      "@browserWindows/*": ["src/browserWindows/*"],
+      "@notifications/*": ["src/notifications/*"],
+      "@tabs/*": ["src/tabs/*"],
+      "@browserData/*": ["src/browserData/*"],
+      "@hotkeys/*": ["src/hotkeys/*"],
+      "@_authentication/*": ["src/_private/authentication_private/*"],
+      "@chatAgents/*": ["src/chatAgents/*"],
+      "@preBuiltCommands/*": ["src/all_PreBuilt_Commands/*"]
+    }
+  },
+  "include": ["src", "utils", "vite.config.mts", "manifest.ts", "../node_modules/@types"]
+}

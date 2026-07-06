@@ -1,0 +1,21 @@
+{
+  "extends": "@extension/tsconfig/base",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@src/*": ["src/*", "../AltS_search_newtab/src/*"],
+      "@private-providers/*": ["../../storage/_private/API/storage/providers/*", "../../storage/_private/API/storage/providers/private-mocks/*"],
+      "@private-services/*": ["../../storage/_private/API/services/*"]
+    },
+    "types": ["chrome", "node"]
+  },
+  "include": [
+    "src",
+    "vite.config.mts",
+    "../../shared-components",
+    "../../settings",
+    "../../storage",
+    "../../allObjectFolder",
+    "../../welcomeGuide"
+  ]
+}
