@@ -18,7 +18,7 @@ import { createSnippet } from '../../../../../../allObjectFolder/src/createObjec
 import { useFavorites } from '../../../../../../shared-components/favorites/favoriteHooks';
 import { useDbStore } from '../../../../../../storage/store/useDbStore';
 import { db } from '../../../../../../storage/indexDB/dbConfig';
-import { getUserId } from '../../../../../../storage/_private/API/core/api';
+import { getUserId } from '../../../../../../storage/API/core/api';
 import { FaStar, FaCode, FaTerminal, FaCheck, FaTimes, FaFolder, FaChevronDown, FaGlobe } from 'react-icons/fa';
 import { FiStar, FiHelpCircle, FiZap, FiGlobe } from 'react-icons/fi';
 
@@ -740,3 +740,4 @@ const SpreadsheetQuickAddModal: React.FC = () => {
 };
 
 export default SpreadsheetQuickAddModal;
+

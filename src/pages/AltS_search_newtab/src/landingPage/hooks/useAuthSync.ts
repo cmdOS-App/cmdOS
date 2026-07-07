@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { getUserId } from '../../../../../storage/_private/API/core/identity';
+import { getUserId } from '../../../../../storage/API/core/api';
 
 export const useAuthSync = () => {
   const [authChecked, setAuthChecked] = useState(false);
@@ -58,4 +58,5 @@ export const useAuthSync = () => {
 
   return { authChecked, userId, isLoggedIn };
 };
+
 

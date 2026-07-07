@@ -98,7 +98,7 @@ export const ViewMenuPanel: React.FC<ViewMenuPanelProps> = ({ searchbarRef }) =>
       label: 'All',
       slash: '/a ',
       icon: (
-        <svg className="w-3.5 h-3.5 shrink-0 text-[var(--color-iconDefault)] ml-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+        <svg className="w-3.5 h-3.5 shrink-0 text-[var(--color-iconDefault)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
           <rect x="3" y="3" width="7" height="7" rx="1" />
           <rect x="14" y="3" width="7" height="7" rx="1" />
           <rect x="14" y="14" width="7" height="7" rx="1" />
@@ -106,13 +106,13 @@ export const ViewMenuPanel: React.FC<ViewMenuPanelProps> = ({ searchbarRef }) =>
         </svg>
       )
     },
-    { id: 'notes', label: 'Notes', slash: '/n ', icon: <NotesIcon size={14} className="shrink-0 text-amber-400 ml-0.5" /> },
-    { id: 'snippets', label: 'Snippets', slash: '/s ', icon: <FaCode size={14} className="text-[var(--color-iconDefault)] shrink-0 ml-0.5" /> },
-    { id: 'links', label: 'Links', slash: '/l ', icon: <FaLink size={14} className="text-blue-400 shrink-0 ml-0.5" /> },
-    { id: 'chat_agents', label: 'Chat Agents', slash: '/ca ', icon: <FaRobot size={14} className="text-indigo-400 shrink-0 ml-0.5" /> },
-    { id: 'todos', label: 'Todos', slash: '/t ', icon: <BsCalendarCheck size={14} className="text-[var(--color-iconDefault)] shrink-0 ml-0.5" /> },
-    { id: 'automations', label: 'Automations', slash: '/au ', icon: <FiZap size={14} className="text-amber-400 shrink-0 ml-0.5" /> },
-    { id: 'sessions', label: 'Tab groups', slash: '/se ', icon: <FaLayerGroup size={14} className="text-purple-400 shrink-0 ml-0.5" /> },
+    { id: 'notes', label: 'Notes', slash: '/n ', icon: <NotesIcon size={14} className="shrink-0 text-amber-400" /> },
+    { id: 'snippets', label: 'Snippets', slash: '/s ', icon: <FaCode size={14} className="text-[var(--color-iconDefault)] shrink-0" /> },
+    { id: 'links', label: 'Links', slash: '/l ', icon: <FaLink size={14} className="text-blue-400 shrink-0" /> },
+    { id: 'chat_agents', label: 'Chat Agents', slash: '/ca ', icon: <FaRobot size={14} className="text-indigo-400 shrink-0" /> },
+    { id: 'todos', label: 'Todos', slash: '/t ', icon: <BsCalendarCheck size={14} className="text-[var(--color-iconDefault)] shrink-0" /> },
+    { id: 'automations', label: 'Automations', slash: '/au ', icon: <FiZap size={14} className="text-amber-400 shrink-0" /> },
+    { id: 'sessions', label: 'Tab groups', slash: '/se ', icon: <FaLayerGroup size={14} className="text-purple-400 shrink-0" /> },
   ], []);
 
   const mainItems = useMemo(() => {
@@ -160,7 +160,9 @@ export const ViewMenuPanel: React.FC<ViewMenuPanelProps> = ({ searchbarRef }) =>
           handleViewClick(opt.slash);
         }}
       >
-        {opt.icon}
+        <div className="w-4 h-4 flex items-center justify-center shrink-0">
+          {opt.icon}
+        </div>
         <span
           className={`text-[12px] font-semibold tracking-tight transition-colors duration-150 ${isDark
               ? 'text-neutral-400 group-hover:text-neutral-200'
@@ -183,7 +185,7 @@ export const ViewMenuPanel: React.FC<ViewMenuPanelProps> = ({ searchbarRef }) =>
               className={`text-[12px] font-bold tracking-wider ${isDark ? 'text-neutral-400' : 'text-neutral-500'
                 }`}
             >
-              VIEW
+              MY LIBRARY
             </span>
           </div>
           <div

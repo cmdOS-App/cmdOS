@@ -16,12 +16,15 @@ import React, { useRef, useEffect, useState } from 'react';
 import { useSelector } from 'react-redux';
 import { useUIStore } from '../../../../../shared-components/uiStateManager';
 import { EditorContainer } from '../../../../../shared-components/editorContainer/EditorContainer';
+import { createAiPrompt, getAiPrompt, updateAiPrompt } from '../aiPromptData';
+import { StorageManager } from '../../../../../storage/localStorage/storageManager';
 import { useAiPromptEditor } from '../useAiPromptEditor';
 import TextEditor from '../../../../../shared-components/TextEditor';
 import { useAppearance } from '@extension/ui';
 import { FaTimes, FaCheckCircle, FaExternalLinkAlt, FaSpinner, FaPencilAlt, FaChevronDown, FaCog, FaAsterisk } from 'react-icons/fa';
 import { LuSparkles } from 'react-icons/lu';
 import { getFaviconUrl } from '../../../../../pages/AltS_search_newtab/src/components/searchSystemComponents/searchBarMain/utilityFunctions/utils';
+import { AutoSaveIndicator } from '../../../../../shared-components/autoSaveEngine/autoSave';
 
 interface ModelOption {
   id: string;
@@ -54,19 +57,24 @@ export function AiPromptEditorView(props: AiPromptEditorViewProps) {
   const toolbarSelector = `#${toolbarIdRef.current}`;
 
 
-  const [excludedModels, setExcludedModels] = useState<string[]>(() => {
-    try {
-      const stored = localStorage.getItem('aiPrompt_excludedModels');
-      return stored ? JSON.parse(stored) : [];
-    } catch {
-      return [];
-    }
-  });
+  const [excludedModels, setExcludedModels] = useState<string[]>([]);
+
+  useEffect(() => {
+    StorageManager.getItem('aiPrompt_excludedModels').then((stored: any) => {
+      if (stored) {
+        try {
+          setExcludedModels(JSON.parse(stored));
+        } catch {
+          // ignore
+        }
+      }
+    });
+  }, []);
 
   const toggleModelExclusion = (modelId: string) => {
     setExcludedModels(prev => {
       const next = prev.includes(modelId) ? prev.filter(id => id !== modelId) : [...prev, modelId];
-      localStorage.setItem('aiPrompt_excludedModels', JSON.stringify(next));
+      void StorageManager.setItem('aiPrompt_excludedModels', JSON.stringify(next));
       return next;
     });
   };
@@ -94,8 +102,8 @@ export function AiPromptEditorView(props: AiPromptEditorViewProps) {
       ref={containerRef}
       style={{ minHeight: '450px', height: '100%' }}
       innerStyle={{ minHeight: '450px', height: '100%' }}
-      className={`w-full h-full flex flex-col gap-1 text-left text-neutral-900 dark:text-white bg-transparent ${isFullScreenMode || isEmbedded ? '' : 'px-6 md:px-12 lg:px-24 py-6 md:py-10'}`}
-      innerClassName={`flex-1 flex-shrink-0 flex flex-col relative overflow-visible ${isFullScreenMode ? 'w-full rounded-none' : 'w-full max-w-xl mr-auto md:ml-12 lg:ml-24 rounded-xl min-h-[400px] h-full'} bg-[var(--color-editorBg)] ${isFocusMode || isFullScreenMode ? 'border-none' : 'border border-black/5 dark:border-white/10'}`}>
+      className={`w-full h-full flex flex-col items-center justify-center gap-1 text-left text-neutral-900 dark:text-white bg-transparent ${isFullScreenMode || isEmbedded ? '' : 'px-4 md:px-8 lg:px-12 py-6 md:py-10'}`}
+      innerClassName={`flex flex-col relative overflow-visible ${isFullScreenMode ? 'w-full flex-1 flex-shrink-0 rounded-none' : 'w-full max-w-2xl lg:max-w-3xl xl:max-w-4xl mx-auto rounded-xl h-[80vh] min-h-[400px] -translate-x-6'} bg-[var(--color-editorBg)] ${isFocusMode || isFullScreenMode ? 'border-none' : 'border border-black/5 dark:border-white/10'}`}>
       <div className="flex-1 min-h-0 flex overflow-visible flex-col bg-transparent text-neutral-900 dark:text-white">
         <div className="flex-1 flex min-h-0 relative">
           {isFullScreenMode && <div className="h-20 flex-shrink-0" />}
@@ -114,16 +122,10 @@ export function AiPromptEditorView(props: AiPromptEditorViewProps) {
                     {state.generationError}
                   </span>
                 )}
-                {state.saveStatus === 'saving' && (
-                  <span className="text-sm font-medium text-neutral-400 dark:text-neutral-500 flex items-center gap-1 whitespace-nowrap">
-                    Saving...
-                  </span>
-                )}
-                {state.saveStatus === 'saved' && (
-                  <span className="text-sm font-medium text-emerald-500 flex items-center gap-1 whitespace-nowrap">
-                    Saved <FaCheckCircle className="text-xs" />
-                  </span>
-                )}
+                <AutoSaveIndicator
+                  saveStatus={state.saveStatus}
+                  lastSavedAt={state.lastSavedAt}
+                />
                 {state.generatedUrl && !state.isGenerating && (
                   <span className="text-sm font-medium text-emerald-500 flex items-center gap-1 whitespace-nowrap">
                     Link Generated! <FaExternalLinkAlt size={10} />

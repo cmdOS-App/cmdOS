@@ -17,6 +17,7 @@ import { createChatAgent, updateChatAgent, deleteChatAgent } from './chatAgentDa
 import type { ChatAgentRecord, CreateChatAgentInput, UpdateChatAgentInput } from './chatAgentTypes';
 import { useChatAgent } from './chatAgentHooks';
 import { getSmartDefaultWorkspace } from '../../../../storage/localStorage/lastUsedWorkspace';
+import { StorageManager } from '../../../../storage/localStorage/storageManager';
 
 export interface ChatAgentEditorProps {
   agentId?: string | null;
@@ -68,7 +69,7 @@ export function useChatAgentEditor(props: ChatAgentEditorProps) {
       const smartWs = await getSmartDefaultWorkspace();
       if (smartWs) {
         setWorkspaceId(smartWs.id);
-        const savedFolderId = localStorage.getItem('lastUsedFolderId');
+        const savedFolderId = await StorageManager.getItem('lastUsedFolderId');
         setFolderId(savedFolderId || null);
       } else {
         setWorkspaceId(null);
@@ -191,9 +192,11 @@ export function useChatAgentEditor(props: ChatAgentEditorProps) {
       lastSavedFolderIdRef.current = savedAgent.folderId;
       lastSavedTagIdsRef.current = savedAgent.tagIds;
 
-      if (savedAgent.workspaceId) localStorage.setItem('lastUsedWorkspaceId', savedAgent.workspaceId);
-      if (savedAgent.folderId) localStorage.setItem('lastUsedFolderId', savedAgent.folderId);
-      else localStorage.removeItem('lastUsedFolderId');
+      const wId = savedAgent.workspaceId;
+      const fId = savedAgent.folderId;
+      if (wId) void StorageManager.setItem('lastUsedWorkspaceId', wId);
+      if (fId) void StorageManager.setItem('lastUsedFolderId', fId);
+      else void StorageManager.removeItem('lastUsedFolderId');
 
       setSaveStatus('saved');
       setLastSavedAt(new Date(savedAgent.updatedAt));

@@ -25,7 +25,7 @@ import { saveUserShortcut, deleteUserShortcutByReference } from '../../../../../
 import { getUserHotkey } from '../../../../../../shared-components/hotkeys';
 import { getUserShortcut } from '../../../../../../shared-components/shortcuts';
 import { useUIStore } from '../../../../../../shared-components/uiStateManager';
-import { getUserId } from '../../../../../../storage/_private/API/core/api';
+import { getUserId } from '../../../../../../storage/API/core/api';
 import { create } from 'zustand';
 import { resolveCommandLookupKey, isCommandId } from '../../../../../../shared-components/commands';
 import { useDbStore } from '../../../../../../storage/store/useDbStore';
@@ -1714,3 +1714,4 @@ export const useSpreadsheetStore = create<GridState>((set, get) => ({
   isFilterMenuOpen: false,
   setFilterMenuOpen: (open: boolean) => set({ isFilterMenuOpen: open }),
 }));
+

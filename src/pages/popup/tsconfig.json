@@ -4,8 +4,8 @@
     "baseUrl": ".",
     "paths": {
       "@src/*": ["src/*"],
-      "@private-providers/*": ["../../storage/_private/API/storage/providers/*"],
-      "@private-services/*": ["../../storage/_private/API/services/*"]
+      "@private-providers/*": ["../../storage/API/storage/providers/*"],
+      "@private-services/*": ["../../storage/API/services/*"]
     },
     "types": ["chrome", "node"],
     "jsx": "react-jsx",
@@ -13,3 +13,4 @@
   },
   "include": ["src", "vite.config.mts"]
 }
+

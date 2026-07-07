@@ -12,7 +12,7 @@ import { createPortal } from 'react-dom';
 import { useAppearance } from '@extension/ui';
 import useNotification from '../../../../../shared-components/notifications/useNotification';
 import { VariableSizeList as List } from 'react-window';
-// REMOVED: import { updateSnippetShortcut, updateSnippetHotkey } from '../../../../../storage/_private/API/features/snippetApi';
+// REMOVED: import { updateSnippetShortcut, updateSnippetHotkey } from '../../../../../storage/API/features/snippetApi';
 
 import { saveUserHotkey, deleteUserHotkeyByReference } from '../../../../../shared-components/hotkeys/core/hotkeyDbData';
 import { saveUserShortcut, deleteUserShortcutByReference } from '../../../../../shared-components/shortcuts/core/shortcutDbData';
@@ -2628,3 +2628,4 @@ const DefaultContainer = forwardRef<DefaultContainerHandle, DefaultContainerProp
 DefaultContainer.displayName = 'DefaultContainer';
 
 export default React.memo(DefaultContainer);
+

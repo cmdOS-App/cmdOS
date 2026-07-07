@@ -122,8 +122,8 @@ import {
 import AtCommandPopup, { AT_COMMAND_COUNT, getFilteredAtCommandCount, getFilteredAtCommands } from './atCommandPopup';
 
 
-import { CMDOS_SIGN_UP_URL } from '../../../../../../../storage/_private/API/core/apiConfig';
-import { updateAutomation } from '../../../../../../../storage/_private/API/core/api';
+import { CMDOS_SIGN_UP_URL } from '../../../../../../../storage/API/core/api';
+
 import { htmlToPlainTextWithStructure } from '../keyboardAndUiHooks/pasteUtils';
 import ContextualCommandPopup, { ContextualMatch } from './contextualCommandPopup';
 import { findContextualMatches, searchDedicatedPanel, type InstalledModule } from '../searchLogicAndAlgorithms/searchEngine';
@@ -1158,52 +1158,9 @@ export const Searchbar = forwardRef<SearchbarHandle, SearchbarProps>(
       [applyDropdownEditsToSteps],
     );
 
-    const buildApiStepsPayload = useCallback((steps: any[]) => {
-      const mapSteps = (
-        stepList: any[],
-      ): { module_id: string; step_order: number; config: Record<string, any>; sub_steps?: any[] }[] =>
-        (stepList || []).map((step: any, index: number) => ({
-          module_id: step.moduleId,
-          step_order: index + 1,
-          config: step.config || {},
-          ...(Array.isArray(step.subSteps) && step.subSteps.length > 0
-            ? {
-              sub_steps: mapSteps(step.subSteps),
-            }
-            : {}),
-        }));
-      return mapSteps(steps || []);
-    }, []);
 
-    const persistDropdownEditsForAutomations = useCallback(
-      async (automations: SavedAutomation[]) => {
-        const persistable = (automations || []).filter(auto => {
-          const automationId = Number(auto?.id);
-          return Number.isFinite(automationId) && automationId > 0;
-        });
-        if (persistable.length === 0) return;
 
-        const results = await Promise.allSettled(
-          persistable.map(async auto => {
-            const automationId = Number(auto.id);
-            const payloadSteps = buildApiStepsPayload(auto.steps || []);
-            return updateAutomation({
-              id: automationId,
-              name: auto.name,
-              steps: payloadSteps,
-            });
-          }),
-        );
 
-        const failed = results.filter(result => result.status === 'rejected').length;
-        if (failed > 0) {
-          triggerNotification('Some dropdown edits failed to persist', 'error');
-          return;
-        }
-        triggerNotification('Dropdown edits saved', 'success');
-      },
-      [buildApiStepsPayload, triggerNotification],
-    );
 
     // --- Agent Snippet Saving ---
     const handleSaveAsAgent = useCallback(
@@ -9473,6 +9430,7 @@ export const Searchbar = forwardRef<SearchbarHandle, SearchbarProps>(
 Searchbar.displayName = 'Searchbar';
 
 export default Searchbar;
+
 
 
 

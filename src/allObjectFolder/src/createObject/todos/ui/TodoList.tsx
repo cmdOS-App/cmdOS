@@ -802,6 +802,7 @@ const TodoList: React.FC<TodoListProps> = React.memo(({ isOpen, onClose, searchb
         }));
       }
 
+      console.log('[TodoList] handleCreateFromSelection called with:', { title: data.title, scheduleType: data.scheduleType, date: data.date, time: data.time });
       const newTodo = await createTodo(
         data.title,
         references,
@@ -810,6 +811,7 @@ const TodoList: React.FC<TodoListProps> = React.memo(({ isOpen, onClose, searchb
         data.scheduleType === 'recurring' ? data.recurringCycle : undefined,
         data.description
       );
+      console.log('[TodoList] createTodo succeeded:', newTodo?.id);
       
       try {
         const chromeAny = (window as any).chrome;
@@ -824,14 +826,17 @@ const TodoList: React.FC<TodoListProps> = React.memo(({ isOpen, onClose, searchb
         console.error('Failed to schedule new dexie todo alarm', err);
       }
       
-      if (onClose) onClose();
-      setIsCreateModalOpen(false);
+      // Let CreateTodoView handle its own onClose logic for animations and createMore
+      if (!data.createMore) {
+        if (onClose) onClose();
+        setIsCreateModalOpen(false);
+      }
     } catch (e) {
       console.error('Failed to create dexie todo', e);
     } finally {
       setIsLoading(false);
     }
-  };;
+  };
 
   const createViewFlatItems = React.useMemo(() => {
     if (isCreateModalOpen) return [];
@@ -1251,17 +1256,7 @@ const TodoList: React.FC<TodoListProps> = React.memo(({ isOpen, onClose, searchb
                     {taskTitle}
                   </span>
                 </div>
-                {(() => {
-                  const desc = renderDescription();
-                  if (desc && desc.trim() !== '' && desc !== taskTitle) {
-                    return (
-                      <span className={`text-[11px] font-normal truncate pl-[22px] mt-0.5 ${task.is_done ? 'text-white/30' : (theme.wallpaper ? 'text-[var(--color-textSecondary)]' : 'text-[#8b949e]')}`} title={desc}>
-                        {desc}
-                      </span>
-                    );
-                  }
-                  return null;
-                })()}
+                {/* Description removed as requested */}
               </>
             ) : (
               <>
@@ -1284,20 +1279,7 @@ const TodoList: React.FC<TodoListProps> = React.memo(({ isOpen, onClose, searchb
                     }`}>
                     {getTaskCategoryDisplay(task)}
                   </span>
-                  {(() => {
-                    const desc = renderDescription();
-                    if (desc && desc.trim() !== '' && desc !== taskTitle) {
-                      return (
-                        <>
-                          <span className="opacity-50 text-[10px] shrink-0">•</span>
-                          <span className={`text-[11px] font-normal truncate max-w-[300px] ${theme.wallpaper ? 'text-[var(--color-textSecondary)]' : 'text-[#8b949e]'}`} title={desc}>
-                            {desc}
-                          </span>
-                        </>
-                      );
-                    }
-                    return null;
-                  })()}
+                  {/* Description removed as requested */}
                 </div>
               </>
             )}

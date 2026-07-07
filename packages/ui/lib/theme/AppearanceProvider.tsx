@@ -32,15 +32,9 @@ function applyOpacity(color: string, opacity: number) {
 }
 
 export const AppearanceProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Read state synchronously from localStorage first for 0ms initial load
-  const [themeId, setThemeId] = useState<string>(() => {
-    return (typeof window !== 'undefined' ? localStorage.getItem('theme-id') : null) || 'ocean-blue';
-  });
+  const [themeId, setThemeId] = useState<string>('ocean-blue');
 
-  const [wallpaperId, setWallpaperId] = useState<string>(() => {
-    const stored = typeof window !== 'undefined' ? localStorage.getItem('wallpaper-id') : null;
-    return stored || 'default-wallpaper.png';
-  });
+  const [wallpaperId, setWallpaperId] = useState<string>('car-race.png');
 
   const [customWallpaperBase64, setCustomWallpaperBase64] = useState<string>('');
 
@@ -50,15 +44,13 @@ export const AppearanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     appearanceThemeStorage.get().then(id => {
       if (id) {
         setThemeId(id);
-        localStorage.setItem('theme-id', id);
       }
     });
 
     appearanceWallpaperStorage.get().then(id => {
-      const newId = id || 'default-wallpaper.png';
+      const newId = id || 'car-race.png';
       if (newId) {
         setWallpaperId(newId);
-        localStorage.setItem('wallpaper-id', newId);
       }
     });
 
@@ -75,17 +67,15 @@ export const AppearanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       appearanceThemeStorage.get().then(id => {
         if (id) {
           setThemeId(id);
-          localStorage.setItem('theme-id', id);
         }
       });
     });
 
     const unsubscribeWallpaper = appearanceWallpaperStorage.subscribe(() => {
       appearanceWallpaperStorage.get().then(id => {
-        const newId = id || 'default-wallpaper.png';
+        const newId = id || 'car-race.png';
         if (newId) {
           setWallpaperId(newId);
-          localStorage.setItem('wallpaper-id', newId);
         }
       });
     });
@@ -180,17 +170,11 @@ export const AppearanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   const setTheme = async (id: string) => {
     setThemeId(id);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('theme-id', id);
-    }
     await appearanceThemeStorage.set(id);
   };
 
   const setWallpaper = async (id: string) => {
     setWallpaperId(id);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('wallpaper-id', id);
-    }
     await appearanceWallpaperStorage.set(id);
   };
 

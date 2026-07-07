@@ -17,6 +17,7 @@ import type { SessionRecord, CreateSessionInput, UpdateSessionInput } from './se
 import type { LinkItem } from '../links/linkTypes';
 import { useDbStore } from '../../../../storage/store/useDbStore';
 import { getSmartDefaultWorkspace } from '../../../../storage/localStorage/lastUsedWorkspace';
+import { StorageManager } from '../../../../storage/localStorage/storageManager';
 import { SessionOpenSettings, DEFAULT_SESSION_SETTINGS } from './sessionSettings';
 
 export interface UseSessionEditorParams {
@@ -106,7 +107,7 @@ export function useSessionEditor(props: UseSessionEditorParams) {
       if (smartWs) {
         setWorkspaceId(smartWs.id);
         lastSavedWorkspaceIdRef.current = smartWs.id;
-        const savedFolderId = localStorage.getItem('lastUsedFolderId');
+        const savedFolderId = await StorageManager.getItem('lastUsedFolderId');
         setFolderId(savedFolderId || null);
         lastSavedFolderIdRef.current = savedFolderId || null;
       } else {
@@ -162,6 +163,8 @@ export function useSessionEditor(props: UseSessionEditorParams) {
   }, [liveSession, isInitialized, isSessionDeleted]);
 
   const isDirty = useMemo(() => {
+    if (!isInitialized) return false;
+    if (!sessionTitle.trim()) return false;
     const titleChanged = sessionTitle !== lastSavedTitleRef.current;
     const workspaceChanged = workspaceId !== lastSavedWorkspaceIdRef.current;
     const folderChanged = folderId !== lastSavedFolderIdRef.current;
@@ -170,7 +173,7 @@ export function useSessionEditor(props: UseSessionEditorParams) {
     const settingsChanged = JSON.stringify(openSettings) !== JSON.stringify(lastSavedSettingsRef.current);
 
     return titleChanged || workspaceChanged || folderChanged || urlsChanged || tagsChanged || settingsChanged;
-  }, [sessionTitle, workspaceId, folderId, sessionUrls, tagIds, openSettings]);
+  }, [sessionTitle, workspaceId, folderId, sessionUrls, tagIds, openSettings, isInitialized]);
 
   const handleSave = useCallback(async function saveFn(
     isAutoSave: boolean = false,
@@ -195,6 +198,10 @@ export function useSessionEditor(props: UseSessionEditorParams) {
     const finalSettings = overrideProps?.openSettings !== undefined ? overrideProps.openSettings : settings;
     const finalTitle = overrideProps?.title !== undefined ? overrideProps.title : title;
     const finalUrls = overrideProps?.urls !== undefined ? overrideProps.urls : urls;
+
+    if (!finalTitle.trim()) {
+      return false;
+    }
 
     setSaveStatus('saving');
 
@@ -293,6 +300,25 @@ export function useSessionEditor(props: UseSessionEditorParams) {
     }
   }, []);
 
+  const resetEditor = useCallback(() => {
+    activeSessionIdRef.current = null;
+    setActiveSessionId(null);
+    setSessionTitle('');
+    setSessionUrls([]);
+    setOpenSettings(DEFAULT_SESSION_SETTINGS);
+    lastSavedTitleRef.current = '';
+    lastSavedUrlsRef.current = [];
+    lastSavedWorkspaceIdRef.current = null;
+    lastSavedFolderIdRef.current = null;
+    lastSavedTagIdsRef.current = [];
+    lastSavedSettingsRef.current = DEFAULT_SESSION_SETTINGS;
+    lastSavedUpdatedAtRef.current = null;
+    setSaveStatus('idle');
+    setLastSavedAt(null);
+    setIsSessionDeleted(false);
+    setIsInitialized(true);
+  }, []);
+
   return {
     sessionTitle,
     setSessionTitle,
@@ -314,5 +340,6 @@ export function useSessionEditor(props: UseSessionEditorParams) {
     handleDelete,
     isInitialized,
     activeSessionId,
+    resetEditor,
   };
 }

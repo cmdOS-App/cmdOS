@@ -1,4 +1,5 @@
 import { db } from '../indexDB/dbConfig';
+import { StorageManager } from './storageManager';
 
 const TUTORIAL_WATCHED_KEY = 'tutorial_watched';
 
@@ -18,12 +19,8 @@ export async function isOnboardingCompleted(): Promise<boolean> {
 
     // 2. Check if the tutorial has been watched
     let tutorialWatched = false;
-    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-      const data = await chrome.storage.local.get([TUTORIAL_WATCHED_KEY]);
-      tutorialWatched = !!data[TUTORIAL_WATCHED_KEY];
-    } else {
-      tutorialWatched = localStorage.getItem(TUTORIAL_WATCHED_KEY) === 'true';
-    }
+    const data = await StorageManager.getItem(TUTORIAL_WATCHED_KEY);
+    tutorialWatched = !!data;
 
     return tutorialWatched;
   } catch (error) {

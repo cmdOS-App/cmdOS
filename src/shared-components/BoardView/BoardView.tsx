@@ -879,10 +879,8 @@ const BoardView: React.FC<BoardViewProps> = ({
           if (isSession) {
             const actualSnippet = item.snippet || item.session || item.data || item;
             const snippetId = actualSnippet?.snippet_id || actualSnippet?.id || item.id;
-            if (confirm('Are you sure you want to delete this tab group?')) {
-              if (snippetId) {
-                deleteSession(snippetId).catch(console.error);
-              }
+            if (snippetId) {
+              deleteSession(snippetId).catch(console.error);
             }
             return;
           }
@@ -2536,12 +2534,12 @@ const BoardView: React.FC<BoardViewProps> = ({
         </button>
       )}
       <div className={clsx(
-        "w-full h-full flex items-stretch overflow-hidden transition-all duration-300 ease-in-out relative",
-        (slashMode.slashDropdown || isEmbedded) ? "bg-transparent border-transparent shadow-none" : "bg-[var(--color-containerBg)] rounded-none border border-white/10 shadow-sm"
+        "w-full h-[600px] flex items-stretch overflow-hidden transition-all duration-300 ease-in-out relative",
+        (slashMode.slashDropdown || isEmbedded) ? "bg-transparent border-transparent shadow-none" : "bg-[var(--color-editorBg)] rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-2xl"
       )}>
         {/* Left Sidebar */}
         {!slashMode.slashDropdown && (
-          <div className="w-[150px] shrink-0 flex flex-col border-r border-white/5 py-4 px-3 overflow-y-auto hover-scrollbar">
+          <div className="w-[150px] shrink-0 flex flex-col border-r border-neutral-200 dark:border-neutral-800/60 py-4 px-3 overflow-y-auto hover-scrollbar">
             {SIDEBAR_ITEMS.map(item => {
               const isSelected = effectiveSidebarSection === item.id;
               return (
@@ -2602,7 +2600,7 @@ const BoardView: React.FC<BoardViewProps> = ({
                 key={group.title}
                 className={clsx(
                   "flex flex-col items-start flex-1 min-w-[260px] max-w-[400px] bg-transparent pr-4 pl-4 pt-4 pb-4 box-border",
-                  !isEmbedded && "border-r border-white/10 last:border-r-0"
+                  !isEmbedded && "border-r border-neutral-200 dark:border-neutral-800/60 last:border-r-0"
                 )}>
                 {/* Header */}
                 <div className="w-full pb-1 mb-1 justify-between min-h-[32px] shrink-0 flex items-center box-border">

@@ -392,7 +392,7 @@ const getItemIcon = (item: ConvertibleItem) => {
   return <FiFileText size={11} className="text-[var(--color-iconDefault)] shrink-0" />;
 };
 
-const validCategories = ['note', 'snippet', 'link', 'automation', 'agent', 'chat_agent', 'ai', 'assistant', 'chat', 'prompt'];
+const validCategories = ['note', 'snippet', 'link', 'automation', 'agent', 'chat_agent', 'ai', 'assistant', 'chat', 'tabgroup', 'tab group', 'link group', 'prompt', 'aiprompt'];
 const isValidCategory = (item: ConvertibleItem) => {
   const cat = (item.category || '').toLowerCase();
   return validCategories.includes(cat) || item.data?.type === 'agent';
@@ -431,7 +431,7 @@ const CreateTodoView: React.FC<CreateTodoViewProps> = ({
 
   const triggerNotification = useNotification();
   const [selectedType, setSelectedType] = useState('custom');
-  const [selectedCategory, setSelectedCategory] = useState<'all' | 'note' | 'snippet' | 'link' | 'prompt' | 'automation' | 'agent'>('all');
+  const [selectedCategory, setSelectedCategory] = useState<'all' | 'note' | 'snippet' | 'link' | 'tabgroup' | 'automation' | 'agent'>('all');
   const [hasSelectedTypeInitially, setHasSelectedTypeInitially] = useState(() => {
     return isEditMode;
   });
@@ -995,7 +995,7 @@ const CreateTodoView: React.FC<CreateTodoViewProps> = ({
       note: [] as ConvertibleItem[],
       snippet: [] as ConvertibleItem[],
       link: [] as ConvertibleItem[],
-      prompt: [] as ConvertibleItem[],
+      tabgroup: [] as ConvertibleItem[],
       automation: [] as ConvertibleItem[],
       agent: [] as ConvertibleItem[],
     };
@@ -1008,9 +1008,9 @@ const CreateTodoView: React.FC<CreateTodoViewProps> = ({
       categories.all.push(item);
       if (cat === 'note') categories.note.push(item);
       else if (cat === 'snippet') categories.snippet.push(item);
-      else if (cat === 'prompt') categories.prompt.push(item);
+      else if (cat === 'tabgroup' || cat === 'tab group' || cat === 'link group') categories.tabgroup.push(item);
       else if (['link'].includes(cat)) categories.link.push(item);
-      else if (['agent', 'chat_agent', 'ai', 'assistant', 'chat'].includes(cat) || item.data?.type === 'agent') categories.agent.push(item);
+      else if (['agent', 'chat_agent', 'ai', 'assistant', 'chat', 'prompt', 'aiprompt'].includes(cat) || item.data?.type === 'agent') categories.agent.push(item);
       else if (['automation'].includes(cat)) categories.automation.push(item);
     });
 
@@ -1131,6 +1131,25 @@ const CreateTodoView: React.FC<CreateTodoViewProps> = ({
   };
 
   const handleKeyDown = React.useCallback((e: React.KeyboardEvent | KeyboardEvent) => {
+    // 1. Check shortcuts FIRST before anything else (bypasses all early returns and isEditing blocks)
+    if (e.key === 'Enter') {
+      const isSaveAndCreateNewShortcut = (isMac ? e.metaKey : e.ctrlKey) && e.shiftKey && e.key === 'Enter';
+      const isSaveShortcut = (isMac ? e.metaKey : e.ctrlKey) && !e.shiftKey && e.key === 'Enter';
+      
+      if (isSaveAndCreateNewShortcut || isSaveShortcut) {
+        const canSave = !((selectedType === 'custom' && !title.trim()) || (selectedType !== 'custom' && !(selectedItem || selectedItems.length > 0)));
+        if (canSave) {
+          e.preventDefault();
+          e.stopPropagation();
+          const now = Date.now();
+          if (now - lastEnterTime.current < 150) return;
+          lastEnterTime.current = now;
+          handleCreate({ overrideCreateMore: isSaveAndCreateNewShortcut });
+          return;
+        }
+      }
+    }
+
     if (e.key === 'Escape') {
       if (activeSlot === 'resource' && isEditing) {
         e.preventDefault();
@@ -1152,7 +1171,7 @@ const CreateTodoView: React.FC<CreateTodoViewProps> = ({
         setMentionIndex(prev => (prev - 1 + mentionSuggestions.length) % mentionSuggestions.length);
         return;
       }
-      if (e.key === 'Enter' || e.key === 'Tab') {
+      if ((e.key === 'Enter' || e.key === 'Tab') && !e.ctrlKey && !e.metaKey) {
         e.preventDefault();
         e.stopPropagation();
         handleSelectMention(mentionSuggestions[mentionIndex]);
@@ -1299,23 +1318,6 @@ const CreateTodoView: React.FC<CreateTodoViewProps> = ({
       const now = Date.now();
       if (now - lastEnterTime.current < 150) { e.preventDefault(); return; }
       lastEnterTime.current = now;
-      const isSaveAndCreateNewShortcut = (isMac ? e.metaKey : e.ctrlKey) && e.shiftKey && e.key === 'Enter';
-      const isSaveShortcut = (isMac ? e.metaKey : e.ctrlKey) && !e.shiftKey && e.key === 'Enter';
-      const canSave = !((selectedType === 'custom' && !title.trim()) || (selectedType !== 'custom' && !(selectedItem || selectedItems.length > 0)));
-
-      if (isSaveAndCreateNewShortcut) {
-        if (canSave) {
-          e.preventDefault();
-          handleCreate({ overrideCreateMore: true });
-          return;
-        }
-      } else if (isSaveShortcut) {
-        if (canSave) {
-          e.preventDefault();
-          handleCreate({ overrideCreateMore: false });
-          return;
-        }
-      }
       if (isEditing) {
         if (activeSlot === 'description') {
           return;
@@ -1377,6 +1379,7 @@ const CreateTodoView: React.FC<CreateTodoViewProps> = ({
   return (
     <div
       className="fixed inset-0 z-[999999] flex justify-center items-start pt-[10vh] sm:pt-[12vh] px-4 pb-4 sm:px-6 sm:pb-6 backdrop-blur-[2px] bg-black/10"
+      onKeyDown={handleKeyDown}
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) {
           const hasUnsavedData = title.trim() !== '' || description.trim() !== '' || selectedItems.length > 0;
@@ -1709,8 +1712,8 @@ const CreateTodoView: React.FC<CreateTodoViewProps> = ({
                           ) },
                           { key: 'note' as const, label: 'Notes', items: categoriesData.note, icon: <FiFileText size={14} className="text-[var(--color-iconDefault)] shrink-0" /> },
                           { key: 'snippet' as const, label: 'Snippets', items: categoriesData.snippet, icon: <FiCode size={14} className="text-[var(--color-iconDefault)] shrink-0" /> },
-                          { key: 'link' as const, label: 'Links', items: categoriesData.link, icon: <FiLink size={14} className="text-[var(--color-iconDefault)] shrink-0" /> },
-                          { key: 'prompt' as const, label: 'Prompts', items: categoriesData.prompt, icon: <LuSparkles size={14} className="text-[var(--color-iconDefault)] shrink-0" /> },
+                           { key: 'link' as const, label: 'Links', items: categoriesData.link, icon: <FiLink size={14} className="text-[var(--color-iconDefault)] shrink-0" /> },
+                          { key: 'tabgroup' as const, label: 'Tab Groups', items: categoriesData.tabgroup, icon: <FaLayerGroup size={14} className="text-[var(--color-iconDefault)] shrink-0" /> },
                           { key: 'automation' as const, label: 'Automations', items: categoriesData.automation, icon: <FiZap size={14} className="text-[var(--color-iconDefault)] shrink-0" /> },
                           { key: 'agent' as const, label: 'Chat Agents', items: categoriesData.agent, icon: <FaRobot size={14} className="text-[var(--color-iconDefault)] shrink-0" /> },
                         ].map(col => {
@@ -1744,7 +1747,7 @@ const CreateTodoView: React.FC<CreateTodoViewProps> = ({
                             { key: 'note' as const, label: 'Notes', items: categoriesData.note },
                             { key: 'snippet' as const, label: 'Snippets', items: categoriesData.snippet },
                             { key: 'link' as const, label: 'Links', items: categoriesData.link },
-                            { key: 'prompt' as const, label: 'Prompts', items: categoriesData.prompt },
+                            { key: 'tabgroup' as const, label: 'Tab Groups', items: categoriesData.tabgroup },
                             { key: 'automation' as const, label: 'Automations', items: categoriesData.automation },
                             { key: 'agent' as const, label: 'Chat Agents', items: categoriesData.agent },
                           ].find(c => c.key === selectedCategory)!;
@@ -1790,6 +1793,16 @@ const CreateTodoView: React.FC<CreateTodoViewProps> = ({
                                           <span className="text-[12.5px] font-normal leading-snug truncate">
                                             {getSingleItemName(item)}
                                           </span>
+                                          {selectedCategory === 'all' && item.category && (
+                                            <span className="text-[10px] text-neutral-500 font-normal shrink-0 ml-1.5 opacity-70">
+                                              {(() => {
+                                                const catLower = item.category.toLowerCase();
+                                                if (catLower === 'agent' || catLower === 'chat_agent') return 'agent';
+                                                if (catLower === 'tabgroup' || catLower === 'tab group') return 'tab group';
+                                                return catLower;
+                                              })()}
+                                            </span>
+                                          )}
                                         </div>
                                       </div>
                                     );

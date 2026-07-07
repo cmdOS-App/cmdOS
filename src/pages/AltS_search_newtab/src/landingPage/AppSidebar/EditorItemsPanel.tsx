@@ -135,8 +135,11 @@ export const EditorItemsPanel: React.FC<EditorItemsPanelProps> = ({
 
   return (
     <div className="flex h-full flex-col">
-      <div className="px-3 pt-3 pb-2 text-[11px] font-bold uppercase tracking-[0.18em] text-neutral-500">
-        {getEditorItemsLabel(panelType)} items
+      <div className="px-3 pt-3 pb-2 flex items-center gap-2 relative">
+        <span className="text-[11px] font-bold tracking-[0.18em] uppercase text-neutral-500 dark:text-neutral-400">
+          {getEditorItemsLabel(panelType)} ({items.length})
+        </span>
+        <div className="flex-1 border-t border-[#eee8d5] dark:border-white/10" />
       </div>
       <div className="flex-1 overflow-y-auto px-2 pb-3">
         {items.length === 0 ? (

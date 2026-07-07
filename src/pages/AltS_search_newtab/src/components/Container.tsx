@@ -59,7 +59,7 @@ import { AiPromptEditorView } from '../../../../allObjectFolder/src/createObject
 
 import { useUIStore } from '../../../../shared-components/uiStateManager';
 
-import { getUserId, syncCounterStats } from '../../../../storage/_private/API/core/api';
+import { getUserId } from '../../../../storage/API/core/api';
 import LinkEditorView from '../../../../allObjectFolder/src/createObject/links/ui/LinkEditorView';
 import SessionEditorView from '../../../../allObjectFolder/src/createObject/session/ui/SessionEditorView';
 import AutomationDashboard from '../../../../allObjectFolder/src/createObject/automationBeta/dashboard/automationDashboard';
@@ -70,7 +70,7 @@ import { CreateTodoView } from '../../../../allObjectFolder/src';
 import { toggleFavoriteRecord } from '../../../../shared-components/favorites/favoriteData';
 import { extractSnippetIdFromCompoundId } from '../../../../shared-components/hotkeys/utils/hotkeyUtils';
 import { deleteLink } from '../../../../allObjectFolder/src/createObject/links/linkData';
-import { deleteTodo } from '../../../../allObjectFolder/src/createObject/todos/todoData';
+import { deleteTodo, createTodo } from '../../../../allObjectFolder/src/createObject/todos/todoData';
 import { deleteNote } from '../../../../allObjectFolder/src/createObject/notes/noteData';
 import { db } from '../../../../storage/indexDB/dbConfig';
 import Searchbar, {
@@ -227,7 +227,6 @@ const Container: React.FC<ContainerProps> = ({
   showTutorial = false,
   setShowTutorial,
 }) => {
-  const isCounterSyncingRef = useRef(false);
   const [storeTab, setStoreTab] = useState<'catalog' | 'saved'>('catalog');
 
   const homeViewRef = useRef<HomeViewHandle>(null);
@@ -650,7 +649,7 @@ const Container: React.FC<ContainerProps> = ({
 
   // Guard the editor state with Zustand's activeEditor to prevent stale state bugs
   const selectedSnippet = activeEditor ? selectedSnippetRaw : null;
-  const isCreatingEditorView = activeEditor?.type === 'note';
+  const isCreatingEditorView = activeEditor?.type === 'note' || activeEditor?.type === 'aiPrompt';
 
   const { theme } = useAppearance();
   const isDark = theme.isDark;
@@ -684,11 +683,7 @@ const Container: React.FC<ContainerProps> = ({
   const [isCheckingTutorial, setIsCheckingTutorial] = useState(true);
   const tutorialVideoSrc = 'https://drive.google.com/file/d/1IyGR9rKItnPPwXdw8RJkNcfnf7HNdfmz/view?usp=sharing';
 
-  const COUNTERS_DAILY_KEY = 'counters_daily_v1';
-  const COUNTERS_SYNC_NEXT_KEY = 'counters_sync_next_at';
-  const COUNTERS_SYNC_LOCK_KEY = 'counters_sync_in_progress';
-  const COUNTERS_SYNC_INTERVAL_MS = 24 * 60 * 60 * 1000;
-  const COUNTERS_SYNC_LOCK_TTL_MS = 2 * 60 * 1000;
+
 
   useEffect(() => {
     const checkTutorial = async () => {
@@ -733,217 +728,7 @@ const Container: React.FC<ContainerProps> = ({
   }, [reload, onTutorialTriggerConsumed]);
 
 
-  useEffect(() => {
-    if (!isLoggedIn) return;
-    const chromeAny = (window as any)?.chrome;
-    if (!chromeAny?.storage?.local) return;
 
-    let cancelled = false;
-
-    const runSync = async () => {
-      if (isCounterSyncingRef.current) return;
-      isCounterSyncingRef.current = true;
-      const now = Date.now();
-      try {
-        const result: any = await new Promise(resolve => {
-          chromeAny.storage.local.get(
-            [COUNTERS_DAILY_KEY, COUNTERS_SYNC_NEXT_KEY, COUNTERS_SYNC_LOCK_KEY, 'last_counter_sync_timestamp'],
-            resolve,
-          );
-        });
-        if (cancelled) return;
-
-        const lastSync = result.last_counter_sync_timestamp || 0;
-        if (now - lastSync < 60 * 1000) return;
-
-        const nextAt = typeof result?.[COUNTERS_SYNC_NEXT_KEY] === 'number' ? result[COUNTERS_SYNC_NEXT_KEY] : 0;
-        if (nextAt && now < nextAt) return;
-
-        const lock = result?.[COUNTERS_SYNC_LOCK_KEY];
-        if (lock && typeof lock.startedAt === 'number' && now - lock.startedAt < COUNTERS_SYNC_LOCK_TTL_MS) {
-          return;
-        }
-
-        const store = result?.[COUNTERS_DAILY_KEY];
-        const days = store?.days && typeof store.days === 'object' ? store.days : {};
-        const dayKeys = Object.keys(days);
-
-        if (dayKeys.length === 0) {
-          await chromeAny.storage.local.set({
-            [COUNTERS_SYNC_NEXT_KEY]: now + COUNTERS_SYNC_INTERVAL_MS,
-            last_counter_sync_timestamp: now,
-          });
-          return;
-        }
-
-        await chromeAny.storage.local.set({
-          [COUNTERS_SYNC_LOCK_KEY]: { startedAt: now },
-          last_counter_sync_timestamp: now,
-        });
-
-        const AGGREGATE_METRIC_IDS: Record<string, number> = {
-          command_count: 1,
-          search_command_count: 2,
-        };
-        const COMMAND_METRIC_IDS: Record<string, number> = {
-          store: 101,
-          agent: 102,
-          gpt: 103,
-          google: 104,
-        };
-
-        const rows: Array<[string, 0 | 1, number, number]> = [];
-        dayKeys.forEach(dayKey => {
-          const bucket = days[dayKey];
-          if (!bucket || typeof bucket !== 'object') return;
-
-          const counts = bucket.counts && typeof bucket.counts === 'object' ? bucket.counts : {};
-          const commandCounts =
-            bucket.commandCounts && typeof bucket.commandCounts === 'object' ? bucket.commandCounts : {};
-
-          Object.entries(AGGREGATE_METRIC_IDS).forEach(([countKey, metricId]) => {
-            const delta = Number((counts as any)[countKey]) || 0;
-            if (delta !== 0) rows.push([dayKey, 0, metricId, delta]);
-          });
-
-          Object.entries(commandCounts as Record<string, any>).forEach(([commandKey, value]) => {
-            const metricId = COMMAND_METRIC_IDS[commandKey];
-            if (!metricId) return;
-            const delta = Number(value) || 0;
-            if (delta !== 0) rows.push([dayKey, 1, metricId, delta]);
-          });
-        });
-
-        if (rows.length === 0) {
-          await chromeAny.storage.local.set({ [COUNTERS_SYNC_NEXT_KEY]: now + COUNTERS_SYNC_INTERVAL_MS });
-          return;
-        }
-
-        const userId = await getUserId();
-        const payload = {
-          v: 2 as const,
-          tz:
-            typeof store?.timezoneOffsetMinutes === 'number'
-              ? store.timezoneOffsetMinutes
-              : new Date(now).getTimezoneOffset(),
-          rows,
-          syncedAt: now,
-        };
-
-        await syncCounterStats(userId, payload);
-
-        const latest: any = await new Promise(resolve => {
-          chromeAny.storage.local.get([COUNTERS_DAILY_KEY], resolve);
-        });
-
-        const latestStore = latest?.[COUNTERS_DAILY_KEY] || {
-          version: 1,
-          timezoneOffsetMinutes: new Date(now).getTimezoneOffset(),
-          days: {},
-          lastUpdated: 0,
-        };
-
-        const latestDays = latestStore?.days && typeof latestStore.days === 'object' ? { ...latestStore.days } : {};
-
-        const AGGREGATE_METRIC_KEYS: Record<number, string> = {
-          1: 'command_count',
-          2: 'search_command_count',
-        };
-        const COMMAND_METRIC_KEYS: Record<number, string> = {
-          101: 'store',
-          102: 'agent',
-          103: 'gpt',
-          104: 'google',
-        };
-
-        const sentDays = (payload.rows || []).reduce(
-          (
-            acc: Record<string, { counts: Record<string, number>; commandCounts: Record<string, number> }>,
-            row: any,
-          ) => {
-            const [day, metricKind, metricId, deltaRaw] = row || [];
-            if (typeof day !== 'string') return acc;
-            const delta = Number(deltaRaw) || 0;
-            if (delta === 0) return acc;
-
-            if (!acc[day]) {
-              acc[day] = { counts: {}, commandCounts: {} };
-            }
-
-            if (metricKind === 0) {
-              const key = AGGREGATE_METRIC_KEYS[Number(metricId)];
-              if (key) acc[day].counts[key] = (acc[day].counts[key] || 0) + delta;
-            } else if (metricKind === 1) {
-              const key = COMMAND_METRIC_KEYS[Number(metricId)];
-              if (key) acc[day].commandCounts[key] = (acc[day].commandCounts[key] || 0) + delta;
-            }
-            return acc;
-          },
-          {},
-        );
-
-        const subtractMap = (latestMap: Record<string, any>, sentMap: Record<string, any>) => {
-          const next: Record<string, number> = {};
-          const keys = new Set([...Object.keys(latestMap || {}), ...Object.keys(sentMap || {})]);
-          keys.forEach(k => {
-            const latestValue = Number((latestMap || {})[k]) || 0;
-            const sentValue = Number((sentMap || {})[k]) || 0;
-            const remaining = latestValue - sentValue;
-            if (remaining > 0) {
-              next[k] = remaining;
-            }
-          });
-          return next;
-        };
-
-        dayKeys.forEach(key => {
-          const latestBucket = latestDays[key];
-          if (!latestBucket || typeof latestBucket !== 'object') {
-            delete latestDays[key];
-            return;
-          }
-
-          const sentBucket = sentDays[key] && typeof sentDays[key] === 'object' ? sentDays[key] : {};
-          const remainingCounts = subtractMap(latestBucket.counts || {}, (sentBucket as any).counts || {});
-          const remainingCommandCounts = subtractMap(
-            latestBucket.commandCounts || {},
-            (sentBucket as any).commandCounts || {},
-          );
-
-          if (Object.keys(remainingCounts).length === 0 && Object.keys(remainingCommandCounts).length === 0) {
-            delete latestDays[key];
-            return;
-          }
-
-          latestDays[key] = {
-            ...latestBucket,
-            counts: remainingCounts,
-            commandCounts: remainingCommandCounts,
-          };
-        });
-
-        await chromeAny.storage.local.set({
-          [COUNTERS_DAILY_KEY]: { ...latestStore, days: latestDays },
-          [COUNTERS_SYNC_NEXT_KEY]: now + COUNTERS_SYNC_INTERVAL_MS,
-        });
-      } catch (err) {
-        console.error('[CounterSync] Failed to sync counter stats:', err);
-      } finally {
-        try {
-          await chromeAny.storage.local.remove(COUNTERS_SYNC_LOCK_KEY);
-        } catch {
-          // ignore
-        } finally {
-          isCounterSyncingRef.current = false;
-        }
-      }
-    };
-
-    runSync();
-    return () => {
-      cancelled = true;
-    };
-  }, [isLoggedIn]);
 
 
 
@@ -1421,6 +1206,7 @@ const Container: React.FC<ContainerProps> = ({
     !isLinkEditModalOpen &&
     !selectedSnippet &&
     !isCreatingNewItem &&
+    !activeEditor &&
     trimmedSearch.length === 0 &&
     !suggestionState?.lockedCommand &&
     !suggestionState?.isAtMenuOpen;
@@ -2440,6 +2226,21 @@ const Container: React.FC<ContainerProps> = ({
             console.error('[Container] Cloud sync failed for edit:', cloudError);
           }
 
+          // Update Dexie database
+          try {
+            const todoId = String(todoCreatePrefill.todo_id || sid);
+            await db.todos.update(todoId, {
+              name: data.title,
+              description: data.description,
+              scheduleTime: new Date(deadline).getTime(),
+              recurringType: (data.recurringCycle as any) || undefined,
+              scheduleType: data.scheduleType === 'recurring' ? 'recurring' : 'one-time',
+              updatedAt: Date.now()
+            });
+          } catch (dbError) {
+            console.error('[Container] Failed to update Dexie todo:', dbError);
+          }
+
           if (chromeAny?.runtime?.sendMessage) {
             chromeAny.runtime.sendMessage({
               action: 'schedule_todo_alarm',
@@ -2462,11 +2263,29 @@ const Container: React.FC<ContainerProps> = ({
         }
 
         const taskValue = data.description;
-        const tempId = `local-temp-${Date.now()}`;
+        let todoIdVal = `local-temp-${Date.now()}`;
+
+        // Save to Dexie database first to get the correct entity ID
+        try {
+          const newTodo = await createTodo(
+            data.title,
+            [],
+            data.scheduleType === 'recurring' ? 'recurring' : 'one-time',
+            new Date(deadline).getTime(),
+            data.scheduleType === 'recurring' ? data.recurringCycle : undefined,
+            data.description
+          );
+          if (newTodo && newTodo.id) {
+            todoIdVal = newTodo.id;
+          }
+        } catch (dbError) {
+          console.error('[Container] Failed to create Dexie todo (custom):', dbError);
+        }
 
         const optimisticTask: any = {
-          snippet_id: tempId,
-          id: tempId,
+          snippet_id: todoIdVal,
+          id: todoIdVal,
+          todo_id: todoIdVal,
           key: data.title,
           title: data.title,
           value: taskValue,
@@ -2487,18 +2306,10 @@ const Container: React.FC<ContainerProps> = ({
           chromeAny.storage.local.set({ local_todos: [optimisticTask, ...localTodos] }, resolve),
         );
 
-        if (chromeAny?.storage?.local) {
-          const finalTask = { ...optimisticTask, snippet_id: tempId, id: tempId, todo_id: tempId };
-          const freshResult = await new Promise<any>(resolve => chromeAny.storage.local.get(['local_todos'], resolve));
-          const freshTodos = (freshResult.local_todos || []).map((t: any) =>
-            t.snippet_id === tempId ? finalTask : t
-          );
-          await new Promise<void>(resolve => chromeAny.storage.local.set({ local_todos: freshTodos }, resolve));
-        }
         if (chromeAny?.runtime?.sendMessage) {
           chromeAny.runtime.sendMessage({
             action: 'schedule_todo_alarm',
-            todoId: String(tempId),
+            todoId: String(todoIdVal),
             deadline: deadline || nowUtc(),
             is_anytime: isAnytime
           });
@@ -2545,6 +2356,32 @@ const Container: React.FC<ContainerProps> = ({
           is_anytime: isAnytime,
           config: configFromSelection,
         };
+
+        // Save to Dexie database
+        try {
+          let references: any[] = [];
+          if (Array.isArray(data.selectedItems)) {
+            references = data.selectedItems.map((item: any) => ({
+              type: item.category || 'snippet',
+              id: item.id || item.snippet_id
+            }));
+          } else if (data.item) {
+            references = [{
+              type: data.type || 'note',
+              id: rawId
+            }];
+          }
+          await createTodo(
+            data.title,
+            references,
+            data.scheduleType === 'recurring' ? 'recurring' : 'one-time',
+            new Date(deadline).getTime(),
+            data.scheduleType === 'recurring' ? data.recurringCycle : undefined,
+            data.description
+          );
+        } catch (dbError) {
+          console.error('[Container] Failed to create Dexie todo (selection):', dbError);
+        }
 
         if (chromeAny?.storage?.local) {
           const result = await new Promise<any>(resolve => chromeAny.storage.local.get(['local_todos'], resolve));
@@ -3483,6 +3320,11 @@ const Container: React.FC<ContainerProps> = ({
 
   return (
     <div
+      style={
+        isNarrowView && !isFocusMode && !isEmbedded && !showSidebarColumn
+          ? { transform: 'translateX(-100px)' }
+          : undefined
+      }
       className={`flex h-full flex-col w-full relative ${isFocusMode || isCreatingEditorView || isLinkEditModalOpen || activeView?.type === 'settings' || activeView?.type === 'createFolder' || activeView?.type === 'createWorkspace'
         ? 'max-w-none mx-0 pt-0 pb-0 mt-0 h-full overflow-hidden'
         : false
@@ -3569,3 +3411,4 @@ const Container: React.FC<ContainerProps> = ({
 };
 
 export default memo(Container);
+

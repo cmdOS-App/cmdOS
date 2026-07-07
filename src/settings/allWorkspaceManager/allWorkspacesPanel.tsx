@@ -579,9 +579,6 @@ export const AllWorkspacesPanel: React.FC<AllWorkspacesPanelProps> = ({ onClose,
                 <div className="text-xs font-bold text-[var(--color-textPrimary)] truncate">
                   {userInfo?.name || 'User'}
                 </div>
-                <div className="text-[10px] text-[var(--color-textMuted)] truncate mt-0.5">
-                  {userInfo?.email || 'user@cmdos.dev'}
-                </div>
               </div>
               <FiChevronDown size={14} className="text-[var(--color-textMuted)] shrink-0" />
             </div>

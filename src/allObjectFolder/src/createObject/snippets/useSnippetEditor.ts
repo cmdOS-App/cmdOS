@@ -16,6 +16,7 @@ import { createSnippet, updateSnippet, deleteSnippet } from './snippetData';
 import type { SnippetRecord, CreateSnippetInput, UpdateSnippetInput } from './snippetTypes';
 import { useSnippet } from './snippetHooks';
 import { getSmartDefaultWorkspace } from '../../../../storage/localStorage/lastUsedWorkspace';
+import { StorageManager } from '../../../../storage/localStorage/storageManager';
 import type { SharedProperties } from '../../../../shared-components/editorToolbar/types';
 
 export interface SnippetEditorViewProps {
@@ -89,7 +90,7 @@ export function useSnippetEditor(props: SnippetEditorViewProps) {
       const smartWs = await getSmartDefaultWorkspace();
       if (smartWs) {
         setWorkspaceId(smartWs.id);
-        const savedFolderId = localStorage.getItem('lastUsedFolderId');
+        const savedFolderId = await StorageManager.getItem('lastUsedFolderId');
         setFolderId(savedFolderId || null);
       } else {
         setWorkspaceId(null);
@@ -119,6 +120,7 @@ export function useSnippetEditor(props: SnippetEditorViewProps) {
   };
 
   const isDirty = useMemo(() => {
+    if (!isInitialized) return false;
     const hasTitle = snippetTitle.trim().length > 0;
     const normalizedConfig = typeof snippetConfig === 'string' ? snippetConfig : JSON.stringify(snippetConfig || {});
     const hasConfig = normalizedConfig.trim().length > 0 && normalizedConfig !== '[]' && normalizedConfig !== '{}';
@@ -139,7 +141,7 @@ export function useSnippetEditor(props: SnippetEditorViewProps) {
       [...tagIds].sort().join(',') !== [...lastSavedTagIdsRef.current].sort().join(',');
 
     return titleChanged || configChanged || workspaceChanged || folderChanged || tagsChanged;
-  }, [activeSnippetId, snippetTitle, snippetConfig, workspaceId, folderId, tagIds]);
+  }, [activeSnippetId, snippetTitle, snippetConfig, workspaceId, folderId, tagIds, isInitialized]);
 
   const handleSave = useCallback(async (silent: boolean = false, overrideProps?: SharedProperties | null): Promise<boolean> => {
     // ALWAYS read from refs to avoid stale closure issues during retries
@@ -273,10 +275,10 @@ export function useSnippetEditor(props: SnippetEditorViewProps) {
         lastSavedFolderIdRef.current = savedSnippet.folderId;
         lastSavedTagIdsRef.current = savedSnippet.tagIds;
 
-        // Persist default selections to localStorage
-        if (savedSnippet.workspaceId) localStorage.setItem('lastUsedWorkspaceId', savedSnippet.workspaceId);
-        if (savedSnippet.folderId) localStorage.setItem('lastUsedFolderId', savedSnippet.folderId);
-        else localStorage.removeItem('lastUsedFolderId');
+        // Persist default selections to StorageManager
+        if (savedSnippet.workspaceId) StorageManager.setItem('lastUsedWorkspaceId', savedSnippet.workspaceId);
+        if (savedSnippet.folderId) StorageManager.setItem('lastUsedFolderId', savedSnippet.folderId);
+        else StorageManager.removeItem('lastUsedFolderId');
 
         if (!silent) {
           setSaveStatus('saved');
@@ -334,7 +336,7 @@ export function useSnippetEditor(props: SnippetEditorViewProps) {
       clearTimeout(autosaveTimerRef.current);
     }
 
-    const delay = 1500;
+    const delay = 1000;
     autosaveTimerRef.current = setTimeout(() => {
       handleSave();
     }, delay);
@@ -402,10 +404,10 @@ export function useSnippetEditor(props: SnippetEditorViewProps) {
     setFolderId(fId);
     setTagIds(tIds);
 
-    // Persist changes to localStorage for defaults
-    if (wId) localStorage.setItem('lastUsedWorkspaceId', wId);
-    if (fId) localStorage.setItem('lastUsedFolderId', fId);
-    else localStorage.removeItem('lastUsedFolderId');
+    // Persist changes to StorageManager for defaults
+    if (wId) StorageManager.setItem('lastUsedWorkspaceId', wId);
+    if (fId) StorageManager.setItem('lastUsedFolderId', fId);
+    else StorageManager.removeItem('lastUsedFolderId');
 
     // Trigger an immediate SILENT save if the destination changes!
     if (prevWsId !== wId || prevFId !== fId) {

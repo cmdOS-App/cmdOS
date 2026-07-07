@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useState, useRef, memo } from '
 import { useAppearance } from '@extension/ui';
 
 import { Reorder, motion, useDragControls } from 'framer-motion';
+import { StorageManager } from '../../../storage/localStorage/storageManager';
 import { updateSnippet } from '../../../allObjectFolder/src/createObject/snippets/snippetData';
 import { updateLink } from '../../../allObjectFolder/src/createObject/links/linkData';
 import FavoriteItem from './FavoriteItem';
@@ -197,18 +198,11 @@ const FavoritesPanel = ({
       }
 
       // Save prefill to local storage perfectly mimicking create session
-      await new Promise<void>(resolve => {
-        chrome.storage.local.set(
-          {
-            pending_session_prefill: {
-              title: sessionName,
-              sessionId: sessionId,
-              urls: initialUrls,
-              names: initialNames,
-            },
-          },
-          () => resolve(),
-        );
+      await StorageManager.setItem('pending_session_prefill', {
+        title: sessionName,
+        sessionId: sessionId,
+        urls: initialUrls,
+        names: initialNames,
       });
 
       chrome.runtime.sendMessage(
@@ -247,57 +241,54 @@ const FavoritesPanel = ({
   const [showViewSection, setShowViewSection] = useState<boolean>(true);
 
   useEffect(() => {
-    chrome.storage.local.get(
-      [
-        'sidebar_sections_order',
-        'sidebar_show_favorites_section_v2',
-        'sidebar_show_create_section',
-        'sidebar_show_view_section',
-      ],
-      result => {
-        if (result.sidebar_sections_order) {
-          const savedOrder: string[] = result.sidebar_sections_order;
-          // Always ensure 'favorites' is present in the order
-          if (!savedOrder.includes('favorites')) {
-            savedOrder.splice(1, 0, 'favorites');
-          }
-          setSectionsOrder(savedOrder);
+    StorageManager.getItem([
+      'sidebar_sections_order',
+      'sidebar_show_favorites_section_v2',
+      'sidebar_show_create_section',
+      'sidebar_show_view_section',
+    ]).then(result => {
+      if (result.sidebar_sections_order) {
+        const savedOrder: string[] = result.sidebar_sections_order;
+        // Always ensure 'favorites' is present in the order
+        if (!savedOrder.includes('favorites')) {
+          savedOrder.splice(1, 0, 'favorites');
         }
-        // If the favorites section was explicitly set to false in a previous session,
-        // respect that choice. Otherwise default to visible.
-        if (result.sidebar_show_favorites_section_v2 === false) {
-          setShowFavoritesSection(false);
-        } else {
-          setShowFavoritesSection(true);
-        }
-        if (result.sidebar_show_create_section !== undefined) {
-          setShowCreateSection(result.sidebar_show_create_section);
-        }
-        if (result.sidebar_show_view_section !== undefined) {
-          setShowViewSection(result.sidebar_show_view_section);
-        }
-      },
-    );
+        setSectionsOrder(savedOrder);
+      }
+      // If the favorites section was explicitly set to false in a previous session,
+      // respect that choice. Otherwise default to visible.
+      if (result.sidebar_show_favorites_section_v2 === false) {
+        setShowFavoritesSection(false);
+      } else {
+        setShowFavoritesSection(true);
+      }
+      if (result.sidebar_show_create_section !== undefined) {
+        setShowCreateSection(result.sidebar_show_create_section);
+      }
+      if (result.sidebar_show_view_section !== undefined) {
+        setShowViewSection(result.sidebar_show_view_section);
+      }
+    });
   }, []);
 
   const handleSectionsReorder = (newOrder: string[]) => {
     setSectionsOrder(newOrder);
-    chrome.storage.local.set({ sidebar_sections_order: newOrder });
+    StorageManager.setItem('sidebar_sections_order', newOrder);
   };
 
   const handleToggleFavoritesSection = (visible: boolean) => {
     setShowFavoritesSection(visible);
-    chrome.storage.local.set({ sidebar_show_favorites_section_v2: visible });
+    StorageManager.setItem('sidebar_show_favorites_section_v2', visible);
   };
 
   const handleToggleCreateSection = (visible: boolean) => {
     setShowCreateSection(visible);
-    chrome.storage.local.set({ sidebar_show_create_section: visible });
+    StorageManager.setItem('sidebar_show_create_section', visible);
   };
 
   const handleToggleViewSection = (visible: boolean) => {
     setShowViewSection(visible);
-    chrome.storage.local.set({ sidebar_show_view_section: visible });
+    StorageManager.setItem('sidebar_show_view_section', visible);
   };
 
   const createDragControls = useDragControls();
@@ -367,8 +358,8 @@ const FavoritesPanel = ({
           chrome.windows.getCurrent({}, w => resolve(w));
         });
         if (currentWindow?.id) {
-          chrome.storage.local.get('active_sessions', (result: any) => {
-            const sessions = result.active_sessions || [];
+          StorageManager.getItem('active_sessions').then((result: any) => {
+            const sessions = result || [];
             const matchedSession = sessions.find((s: any) => s.windowId === currentWindow.id);
             if (matchedSession) {
               setActiveSessionId(matchedSession.sessionId);
@@ -629,9 +620,9 @@ const FavoritesPanel = ({
 
   // Load sort order
   useEffect(() => {
-    chrome.storage.local.get('favoritesSortOrder', result => {
-      if (result.favoritesSortOrder) {
-        setSortOrder(result.favoritesSortOrder);
+    StorageManager.getItem('favoritesSortOrder').then(result => {
+      if (result) {
+        setSortOrder(result);
       }
     });
 
@@ -657,7 +648,7 @@ const FavoritesPanel = ({
 
   const handleSortChange = (newOrder: 'hotkeys' | 'alphabetic' | 'custom' | 'type') => {
     setSortOrder(newOrder);
-    chrome.storage.local.set({ favoritesSortOrder: newOrder });
+    StorageManager.setItem('favoritesSortOrder', newOrder);
     setShowSortMenu(false);
   };
 

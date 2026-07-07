@@ -1,10 +1,12 @@
 
 import { useUIStore } from '../../../../shared-components/uiStateManager';
 import { 
-  CMDOS_DASHBOARD_URL, 
-  CMDOS_DOCS_URL, 
-  CMDOS_PROFILE_URL 
-} from '../../../../storage/_private/API/core/apiConfig';
+  CMDOS_DOCS_URL
+} from '../../../../storage/API/core/apiConfig';
+import {
+  CMDOS_DASHBOARD_URL,
+  CMDOS_PROFILE_URL
+} from '../../../../storage/API/core/api';
 import { CommandContext } from '../../../../shared-components/commands';
 export function getCommandServices(
   state: any, 
@@ -37,3 +39,4 @@ export function getCommandServices(
     }
   };
 }
+

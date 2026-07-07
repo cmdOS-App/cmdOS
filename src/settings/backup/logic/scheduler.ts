@@ -3,7 +3,7 @@ import { executeDriveBackup } from './driveApi';
 const ALARM_NAME = 'cmdos-drive-backup-alarm';
 const PERIOD_IN_MINUTES = 8 * 60; // 8 hours
 
-export const setupBackupScheduler = () => {
+export const enableAutoBackup = () => {
   chrome.alarms.get(ALARM_NAME, (alarm) => {
     if (!alarm) {
       console.log(`[Backup Scheduler] Setting up backup alarm every ${PERIOD_IN_MINUTES} minutes.`);
@@ -14,6 +14,13 @@ export const setupBackupScheduler = () => {
   });
 };
 
+export const disableAutoBackup = () => {
+  chrome.alarms.clear(ALARM_NAME, (wasCleared) => {
+    if (wasCleared) {
+      console.log('[Backup Scheduler] Auto backup alarm disabled.');
+    }
+  });
+};
 // This needs to be called inside your background script/service worker
 export const handleBackupAlarm = async (alarm: chrome.alarms.Alarm) => {
   if (alarm.name === ALARM_NAME) {

@@ -2,7 +2,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import type React from 'react';
 import { useEffect, useState, useRef } from 'react';
 import { FaCog, FaSignOutAlt } from 'react-icons/fa';
-import { CMDOS_SIGN_UP_URL } from '../../../storage/_private/API/core/apiConfig';
+import { CMDOS_SIGN_UP_URL } from '../../../storage/API/core/api';
 
 interface UserInfo {
   name: string | null;
@@ -66,7 +66,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ user, onSignOut }) => {
     };
   }, [isOpen]);
 
-  const initial = user?.name?.charAt(0).toUpperCase() || user?.email?.charAt(0).toUpperCase() || '?';
+  const initial = user?.name?.charAt(0).toUpperCase() || '?';
 
   return (
     <div className="relative z-50" ref={popupRef}>
@@ -74,16 +74,14 @@ const UserProfile: React.FC<UserProfileProps> = ({ user, onSignOut }) => {
         <button
           onClick={() => setIsOpen(!isOpen)}
           className="w-10 h-10 rounded-full bg-[#bf360c] flex items-center justify-center text-white text-lg font-normal shadow-sm cursor-pointer hover:opacity-90 transition-opacity outline-none overflow-hidden p-0"
-          title={user?.email ? `Signed in as ${user.email}` : 'Profile'}>
+          title={user?.name || 'Profile'}>
           {user?.avatar_url ? (
             <img src={user.avatar_url} alt="Profile" className="w-full h-full object-cover" />
           ) : (
             <span>{initial}</span>
           )}
         </button>
-        {/* <div className="absolute -bottom-2 z-20 bg-[#fff8e1] text-[#f57c00] text-[10px] font-bold px-2 py-0.5 rounded-full border border-orange-100 shadow-sm whitespace-nowrap pointer-events-none">
-            Upgrade
-        </div> */}
+        
       </div>
 
       <AnimatePresence>
@@ -107,9 +105,8 @@ const UserProfile: React.FC<UserProfileProps> = ({ user, onSignOut }) => {
                   </div>
                   <div className="text-black">
                     <h3 className="text-sm font-semibold text-black truncate">
-                      {user.name || user.email?.split('@')[0]}
+                      {user.name || 'User'}
                     </h3>
-                    <p className="text-xs text-black truncate">{user.email}</p>
                   </div>
                 </div>
 
@@ -141,3 +138,4 @@ const UserProfile: React.FC<UserProfileProps> = ({ user, onSignOut }) => {
 };
 
 export default UserProfile;
+

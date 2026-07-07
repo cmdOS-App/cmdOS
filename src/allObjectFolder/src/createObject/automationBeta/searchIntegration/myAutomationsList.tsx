@@ -25,7 +25,7 @@ import {
 import type { ParamInputType, ParamConfig } from '../steps/automationStepPicker';
 import { useSelector } from 'react-redux';
 import AutomationDynamicIcon from '../../../../../shared-components/icons/automationDynamicIcon';
-import { getUserId } from '../../../../../storage/_private/API/core/api';
+import { getUserId } from '../../../../../storage/API/core/api';
 import { FiCheck, FiStar } from 'react-icons/fi';
 import { readAllHotkeys, readAllShortcuts, getItemCompoundId } from '../../../../../shared-components/hotkeys/utils/hotkeyUtils';
 import { HotkeyAssignButton } from '../../../../../shared-components/hotkeys';
@@ -1645,5 +1645,6 @@ const CategoryCommandsView: React.FC<CategoryCommandsViewProps> = ({
 };
 
 export default MyAutomationsList;
+
 
 

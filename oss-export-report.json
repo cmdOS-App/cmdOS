@@ -1,9 +1,9 @@
 {
-  "timestamp": "2026-07-06T18:12:20.018Z",
+  "timestamp": "2026-07-07T17:32:09.512Z",
   "status": "SUCCESS",
   "summary": {
     "totalCopied": 546,
-    "totalMocked": 1,
+    "totalMocked": 3,
     "totalExcluded": 0
   },
   "details": {
@@ -21,7 +21,6 @@
       "background/src/chatAgents/contextMenus.ts",
       "background/src/chatAgents/index.ts",
       "background/src/chatAgents/runtimeExecutionEngine.ts",
-      "background/src/config/config.ts",
       "background/src/hotkeys/hotkeys.ts",
       "background/src/notifications/inTabToasts.ts",
       "background/src/notifications/notifications.ts",
@@ -265,8 +264,8 @@
       "src/pages/AltS_search_newtab/public/images/fav-panel/feature-preview-1.png",
       "src/pages/AltS_search_newtab/public/images/fav-panel/feature-preview-3.png",
       "src/pages/AltS_search_newtab/public/images/fav-panel/my_automation.png",
+      "src/pages/AltS_search_newtab/public/images/wallappear/Car Race.png",
       "src/pages/AltS_search_newtab/public/images/wallappear/Evermist.png",
-      "src/pages/AltS_search_newtab/public/images/wallappear/default-wallpaper.png",
       "src/pages/AltS_search_newtab/public/images/wallappear/sky.png",
       "src/pages/AltS_search_newtab/src/components/altsNewtabSidebar/createMenuPanel.tsx",
       "src/pages/AltS_search_newtab/src/components/altsNewtabSidebar/sidebarSettingsDropdown.tsx",
@@ -318,16 +317,16 @@
       "src/pages/AltS_search_newtab/src/components/searchSystemComponents/searchBarMain/utilityFunctions/utils.ts",
       "src/pages/AltS_search_newtab/src/components/searchSystemComponents/searchBarMain/userInterfaceComponents/components/AttachmentManager.tsx",
       "src/pages/AltS_search_newtab/src/components/searchSystemComponents/searchBarMain/userInterfaceComponents/components/InlineAutocomplete.tsx",
+      "src/storage/API/tsconfig.json",
       "src/storage/indexDB/dbConfig.ts",
       "src/storage/localStorage/lastUsedWorkspace.ts",
       "src/storage/localStorage/onboardingStorage.ts",
+      "src/storage/localStorage/storageManager.ts",
       "src/storage/localStorage/uiCustomizationStorage.ts",
       "src/storage/localStorage/uxCustomizationStorage.ts",
       "src/storage/store/useDbStore.ts",
-      "src/storage/_private/API/tsconfig.json",
-      "src/storage/_private/API/core/api.ts",
-      "src/storage/_private/API/core/apiConfig.ts",
-      "src/storage/_private/API/core/identity.ts",
+      "src/storage/API/core/api.ts",
+      "src/storage/API/core/apiConfig.ts",
       "src/shared-components/Branding.tsx",
       "src/shared-components/localEntitySelectors.ts",
       "src/shared-components/pathUtils.ts",
@@ -338,6 +337,7 @@
       "src/shared-components/TextEditor/index.tsx",
       "src/shared-components/assets/my_automation.png",
       "src/shared-components/assets/tasklabs_logo.png",
+      "src/shared-components/autoSaveEngine/autoSave.tsx",
       "src/shared-components/commands/allCommands.tsx",
       "src/shared-components/commands/constants.ts",
       "src/shared-components/commands/identity.ts",
@@ -556,7 +556,9 @@
       "SECURITY.md"
     ],
     "mocked": [
-      "src/storage/_private/API/core/api.ts"
+      "src/storage/API/core/api.ts",
+      "background/src/_private/authentication_private/auth.ts",
+      "src/settings/_private/importCloudData_private/ui/ImportCloudDataPanel.tsx"
     ],
     "excluded": []
   }

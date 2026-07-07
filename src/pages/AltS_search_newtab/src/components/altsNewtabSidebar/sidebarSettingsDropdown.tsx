@@ -459,7 +459,7 @@ export const SidebarSettingsDropdown: React.FC<SidebarSettingsDropdownProps> = (
                     className={`list-none flex flex-col pb-2 ${sectionBorderClass}`}
                   >
                     <SectionHeader
-                      label="VIEW"
+                      label="MY LIBRARY"
                       isOn={showViewSection}
                       onToggle={() => onToggleViewSection(!showViewSection)}
                       dragControls={viewSectionDrag}

@@ -33,6 +33,8 @@ type Snippet = SnippetRecord & {
   snippet_id?: string;
 };
 import { FaCode, FaFlag, FaCheck, FaTimes } from 'react-icons/fa';
+import { TbNotes } from 'react-icons/tb';
+import { StorageManager } from '../../../storage/localStorage/storageManager';
 import CmdIcon from '../../icons/cmdIcon';
 import { motion, AnimatePresence, Reorder, useDragControls } from 'framer-motion';
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
@@ -774,7 +776,7 @@ const SnippetFavoriteItem: React.FC<FavoriteItemProps & { snippet: Snippet }> = 
 
   useEffect(() => {
     if (contextMenu) {
-      chrome.storage.local.get(['local_todos', 'cached_todos'], result => {
+      StorageManager.getItem(['local_todos', 'cached_todos']).then((result: any) => {
         const allTodos = [...(result.local_todos || []), ...(result.cached_todos || [])];
         const match = allTodos.find(t => {
           const tSid = String(t.snippet_id);
@@ -1197,7 +1199,7 @@ const SnippetFavoriteItem: React.FC<FavoriteItemProps & { snippet: Snippet }> = 
           existingValue = allShortcuts[compoundId];
         } else {
           const entry = Object.entries(allShortcuts).find(([id]) => id === compoundId);
-          if (entry) existingValue = entry[1];
+          if (entry) existingValue = entry[1] as string;
         }
 
         const displayValue = existingValue ? existingValue.replace(/^\//, '') : '';

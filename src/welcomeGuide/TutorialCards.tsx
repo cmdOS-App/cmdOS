@@ -11,7 +11,8 @@ import {
   FaGlobe,
 } from 'react-icons/fa';
 import Branding from '../shared-components/Branding';
-import { CMDOS_DOCS_URL } from '../storage/_private/API/core/apiConfig';
+import { CMDOS_DOCS_URL } from '../storage/API/core/apiConfig';
+import { StorageManager } from '../storage/localStorage/storageManager';
 
 // ============================================================================
 // 1. Storage & Utils
@@ -29,12 +30,8 @@ const STORAGE_KEY = 'app_tutorial_progress';
 
 export const getTutorialProgress = async (): Promise<TutorialProgress> => {
   try {
-    const chromeAny = (window as any).chrome;
-    if (chromeAny?.storage?.local) {
-      const result = await new Promise<any>(resolve => chromeAny.storage.local.get(STORAGE_KEY, resolve));
-      return result[STORAGE_KEY] || {};
-    }
-    return {};
+    const result = await StorageManager.getItem(STORAGE_KEY);
+    return result || {};
   } catch (error) {
     console.error('Failed to get tutorial progress:', error);
     return {};
@@ -46,12 +43,9 @@ export const setTutorialStepFinished = async (step: keyof TutorialProgress) => {
     return;
   }
   try {
-    const chromeAny = (window as any).chrome;
-    if (chromeAny?.storage?.local) {
-      const progress = await getTutorialProgress();
-      progress[step] = true;
-      await new Promise<void>(resolve => chromeAny.storage.local.set({ [STORAGE_KEY]: progress }, resolve));
-    }
+    const progress = await getTutorialProgress();
+    progress[step] = true;
+    await StorageManager.setItem(STORAGE_KEY, progress);
   } catch (error) {
     console.error('Failed to save tutorial progress:', error);
   }
@@ -59,59 +53,22 @@ export const setTutorialStepFinished = async (step: keyof TutorialProgress) => {
 
 export const clearTutorialStep = async (step: keyof TutorialProgress) => {
   try {
-    const chromeAny = (window as any).chrome;
-    if (chromeAny?.storage?.local) {
-      const progress = await getTutorialProgress();
-      progress[step] = false;
-      await new Promise<void>(resolve => chromeAny.storage.local.set({ [STORAGE_KEY]: progress }, resolve));
-    }
+    const progress = await getTutorialProgress();
+    progress[step] = false;
+    await StorageManager.setItem(STORAGE_KEY, progress);
   } catch (error) {
     console.error('Failed to clear tutorial step:', error);
   }
 };
 
 export const migrateTutorialProgress = async (): Promise<boolean> => {
-  let modified = false;
-  const progress = await getTutorialProgress();
-
-  if (typeof window !== 'undefined' && window.localStorage) {
-    if (localStorage.getItem('search_tutorial_finished')) {
-      progress.search = true;
-      localStorage.removeItem('search_tutorial_finished');
-      modified = true;
-    }
-    if (localStorage.getItem('favorites_tutorial_seen')) {
-      progress.favorites = true;
-      localStorage.removeItem('favorites_tutorial_seen');
-      modified = true;
-    }
-    if (localStorage.getItem('agent_tutorial_finished')) {
-      progress.agent = true;
-      localStorage.removeItem('agent_tutorial_finished');
-      modified = true;
-    }
-    if (localStorage.getItem('sidebar_tutorial_finished')) {
-      progress.sidebar = true;
-      localStorage.removeItem('sidebar_tutorial_finished');
-      modified = true;
-    }
-  }
-
-  if (modified) {
-    const chromeAny = (window as any).chrome;
-    if (chromeAny?.storage?.local) {
-      await new Promise<void>(resolve => chromeAny.storage.local.set({ [STORAGE_KEY]: progress }, resolve));
-    }
-  }
-  return modified;
+  // Migration logic removed as per user request to solely rely on extension local storage.
+  return false;
 };
 
 export const resetTutorialProgress = async () => {
   try {
-    const chromeAny = (window as any).chrome;
-    if (chromeAny?.storage?.local) {
-      await new Promise<void>(resolve => chromeAny.storage.local.remove([STORAGE_KEY, 'tutorial_watched'], resolve));
-    }
+    await StorageManager.removeItem([STORAGE_KEY, 'tutorial_watched']);
   } catch (error) {
     console.error('Failed to reset tutorial progress:', error);
   }
@@ -348,18 +305,15 @@ interface TutorialDashboardProps {
 }
 
 export const TutorialDashboard: React.FC<TutorialDashboardProps> = ({ onClose, isLoggedIn, isEmbedded }) => {
-  const handleFinish = () => {
-    const chromeAny = (window as any)?.chrome;
-    if (chromeAny?.storage?.local && !(window as any).isReplayingTutorial) {
-      chromeAny.storage.local.set({
-        tutorial_watched: true,
-        app_tutorial_progress: {
-          search: true,
-          favorites: true,
-          agent: true,
-          sidebar: true,
-          touchpoints: true,
-        },
+  const handleFinish = async () => {
+    if (!(window as any).isReplayingTutorial) {
+      await StorageManager.setItem('tutorial_watched', true);
+      await StorageManager.setItem('app_tutorial_progress', {
+        search: true,
+        favorites: true,
+        agent: true,
+        sidebar: true,
+        touchpoints: true,
       });
     }
     window.dispatchEvent(new CustomEvent('TutorialFinished'));
@@ -677,3 +631,4 @@ export const TutorialDashboard: React.FC<TutorialDashboardProps> = ({ onClose, i
 };
 
 export default TutorialCard;
+

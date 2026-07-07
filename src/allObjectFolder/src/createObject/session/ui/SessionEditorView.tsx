@@ -1,5 +1,6 @@
 import { createTodo } from '../../todos/todoData';
 import { EditorContainer } from '../../../../../shared-components/editorContainer/EditorContainer';
+import { StorageManager } from '../../../../../storage/localStorage/storageManager';
 import { SharedPropertiesToolbar } from '../../../../../shared-components/editorToolbar/SharedPropertiesToolbar';
 
 import { generateEntityId } from '../../../../../shared-components/utils/idGenerator';
@@ -56,7 +57,7 @@ import { readAllHotkeys, readAllShortcuts, getItemCompoundId } from '../../../..
 import { useFavorites } from '../../../../../shared-components/favorites/favoriteHooks';
 import { HotkeyAssignButton } from '../../../../../shared-components/hotkeys';
 import { ShortcutAssignButton } from '../../../../../shared-components/shortcuts';
-import { getUserId } from '../../../../../storage/_private/API/core/api';
+import { getUserId } from '../../../../../storage/API/core/api';
 import { deleteUserHotkeyByReference } from '../../../../../shared-components/hotkeys/core/hotkeyDbData';
 import { deleteUserShortcutByReference } from '../../../../../shared-components/shortcuts/core/shortcutDbData';
 
@@ -73,7 +74,8 @@ import {
   saveSessionSettings,
 } from '../sessionSettings';
 import { useDbStore } from '../../../../../storage/store/useDbStore';
-import { nowUtc, useRelativeSavedTime } from '../../../../../shared-components/utils';
+import { nowUtc } from '../../../../../shared-components/utils';
+import { AutoSaveIndicator } from '../../../../../shared-components/autoSaveEngine/autoSave';
 
 interface SessionEditorViewProps {
   isOpen: boolean;
@@ -171,6 +173,7 @@ const SessionEditorView: React.FC<SessionEditorViewProps> = ({
     lastSavedAt,
     handleSave: executeSave,
     activeSessionId: liveSessionId,
+    resetEditor,
   } = useSessionEditor({ sessionId: currentSessionId || undefined, initialDraftKey: prefill?.key || '', initialDraftUrls: EMPTY_INITIAL_URLS });
 
   // Determine mode based on whether a snippet is passed or has been saved
@@ -333,7 +336,7 @@ const SessionEditorView: React.FC<SessionEditorViewProps> = ({
   }, [initialSession]);
 
   const clearStashedBackup = useCallback(() => {
-    localStorage.removeItem(getBackupKey());
+    void StorageManager.removeItem(getBackupKey());
   }, [getBackupKey]);
 
 
@@ -1565,7 +1568,7 @@ const SessionEditorView: React.FC<SessionEditorViewProps> = ({
           teamId,
           timestamp: Date.now()
         };
-        localStorage.setItem(getBackupKey(), JSON.stringify(backupData));
+        void StorageManager.setItem(getBackupKey(), backupData);
       }
     };
 
@@ -1579,34 +1582,32 @@ const SessionEditorView: React.FC<SessionEditorViewProps> = ({
   useEffect(() => {
     if (!isOpen) return;
 
-    const rawBackup = localStorage.getItem(getBackupKey());
-    if (rawBackup) {
-      try {
-        const backup = JSON.parse(rawBackup);
-        if (backup && Date.now() - backup.timestamp < 24 * 60 * 60 * 1000) {
-          
-          setTitle(backup.title || '');
-          setSelectedLinks(backup.selectedLinks || []);
-          if (backup.activeSessionId) {
-            setActiveSessionId(backup.activeSessionId);
+    StorageManager.getItem(getBackupKey()).then((backup: any) => {
+      if (backup) {
+        try {
+          if (Date.now() - backup.timestamp < 24 * 60 * 60 * 1000) {
+            
+            setTitle(backup.title || '');
+            setSelectedLinks(backup.selectedLinks || []);
+            if (backup.activeSessionId) {
+              setActiveSessionId(backup.activeSessionId);
+            }
+            if (backup.targetWorkspaceId) {
+              setManualWorkspaceId(backup.targetWorkspaceId);
+            }
+            if (backup.folderIdForSave) {
+              setManualFolderId(backup.folderIdForSave);
+            }
+            // Clear backup after successful restoration so it doesn't loop
+            void StorageManager.removeItem(getBackupKey());
+            showFooterStatus('success', 'Restored unsaved changes');
           }
-          if (backup.targetWorkspaceId) {
-            setManualWorkspaceId(backup.targetWorkspaceId);
-          }
-          if (backup.folderIdForSave) {
-            setManualFolderId(backup.folderIdForSave);
-          }
-          // Clear backup after successful restoration so it doesn't loop
-          localStorage.removeItem(getBackupKey());
-          showFooterStatus('success', 'Restored unsaved changes');
+        } catch (err) {
+          console.error('[LinkEditModal] Failed to restore stashed backup:', err);
         }
-      } catch (err) {
-        console.error('[LinkEditModal] Failed to restore stashed backup:', err);
       }
-    }
+    });
   }, [isOpen, getBackupKey]);
-
-  const lastSavedMessage = useRelativeSavedTime(lastSavedAt);
 
   useEffect(() => {
     if (isEditMode && isOpen && !hasSyncedInitialDataRef.current) {
@@ -1621,20 +1622,16 @@ const SessionEditorView: React.FC<SessionEditorViewProps> = ({
     selectedLinks,
   ]);
 
-  const handleCreateNew = useCallback(() => {
+  const handleCreateNew = useCallback(async () => {
+    // Save current session silently (autosave=true) — we just want to persist,
+    // NOT trigger onClose or open a new Chrome window
+    await executeSave(true);
+
     setIsForceCreateNew(true);
-    setTitle('');
-    setSelectedLinks([]);
+    resetEditor();
     setLocalSessionOverride(null);
     hasInitializedPrefill.current = false;
     hasSyncedInitialDataRef.current = false;
-    
-    
-    
-    
-    
-    
-    
         
     setCustomLinkUrl('');
     setCustomLinkName('');
@@ -1643,7 +1640,7 @@ const SessionEditorView: React.FC<SessionEditorViewProps> = ({
     if (titleInputRef.current) {
       titleInputRef.current.focus();
     }
-  }, []);
+  }, [executeSave, resetEditor]);
 
   const handleCloseAttempt = useCallback(async () => {
     const endSessionIfActive = () => {
@@ -1690,9 +1687,7 @@ const SessionEditorView: React.FC<SessionEditorViewProps> = ({
       // Create New Shortcut strictly on Ctrl+Shift+Enter
       else if (event.ctrlKey && event.shiftKey && event.key === 'Enter') {
         event.preventDefault();
-        if (isEditMode) {
-          handleCreateNew();
-        }
+        handleCreateNew();
       }
       // Location Picker Shortcut: Alt+Enter (Win) -> Option+Enter (Mac)
       else if (
@@ -1731,6 +1726,7 @@ const SessionEditorView: React.FC<SessionEditorViewProps> = ({
     isEditMode,
     isLeftCustomLinkFormOpen,
     isCustomLinkFormOpen,
+    handleCreateNew,
   ]);
 
   // Browser-level warning for unsaved changes commented out per request
@@ -1866,7 +1862,7 @@ const SessionEditorView: React.FC<SessionEditorViewProps> = ({
     <>
       <EditorContainer
         className="flex flex-row flex-1 h-full relative text-left w-full custom-scrollbar min-h-[450px]"
-        innerClassName="flex flex-col gap-1 w-[500px] max-w-full flex-shrink h-full min-w-[350px] relative min-h-[450px]"
+        innerClassName="flex flex-col gap-1 w-[800px] max-w-full flex-shrink h-full min-w-[350px] relative min-h-[450px]"
       >
           <div className={clsx(
             "flex-1 flex flex-col text-[#073642] dark:text-neutral-200 relative bg-transparent dark:bg-transparent border-none min-h-[450px]",
@@ -1890,23 +1886,12 @@ const SessionEditorView: React.FC<SessionEditorViewProps> = ({
 
                 {/* Auto-save indicator */}
                 {!saveError && (
-                  <div className="flex items-center gap-1 ml-2 transition-opacity duration-300">
-                    {(isEditMode || (title.trim().length > 0 && selectedLinks.length > 0)) && (
-                      <>
-                        {(saveStatus === 'saving' || (hasUnsavedChanges && saveStatus !== 'error')) && (
-                          <span className="text-sm font-medium text-[#93a1a1] dark:text-neutral-500 flex items-center gap-1 whitespace-nowrap opacity-70">
-                            Saving...
-                          </span>
-                        )}
-
-                        {saveStatus === 'saved' && !hasUnsavedChanges && (
-                          <span className="text-sm font-medium text-[#93a1a1] dark:text-neutral-500 flex items-center gap-1 whitespace-nowrap">
-                            {lastSavedMessage} <FaCheckCircle className="opacity-70 text-xs text-emerald-500" />
-                          </span>
-                        )}
-                      </>
-                    )}
-                  </div>
+                  <AutoSaveIndicator
+                    saveStatus={saveStatus}
+                    lastSavedAt={lastSavedAt}
+                    isDirty={hasUnsavedChanges}
+                    className="ml-2"
+                  />
                 )}
 
                 <div className="flex items-center gap-3 ml-auto relative">
@@ -2947,3 +2932,4 @@ const SessionEditorView: React.FC<SessionEditorViewProps> = ({
 };
 
 export default SessionEditorView;
+

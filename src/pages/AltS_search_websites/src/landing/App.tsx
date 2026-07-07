@@ -51,8 +51,8 @@ import NotesIcon from '@src/components/NotesIcon';
 import { getFaviconUrl } from '../../../AltS_search_newtab/src/components/searchSystemComponents/searchBarMain/utilityFunctions/utils';
 import { extractUrlsFromSnippet } from '../../../../allObjectFolder/src/createObject/snippets/SnippetClickActions';
 import { createSnippet as createLocalSnippet } from '../../../../allObjectFolder/src/createObject/snippets/snippetData';
-import { getUserId } from '../../../../storage/_private/API/core/identity';
-import { CMDOS_SIGN_UP_URL, CMDOS_SIGN_IN_URL } from '../../../../storage/_private/API/core/apiConfig';
+import { getUserId } from '../../../../storage/API/core/api';
+import { CMDOS_SIGN_UP_URL, CMDOS_SIGN_IN_URL } from '../../../../storage/API/core/api';
 import { buildUrl } from '../../../../shared-components/commands';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
@@ -1098,7 +1098,7 @@ const App: React.FC<AppProps> = ({ isOpen, onClose, theme }) => {
           workspaceId,
           folderId: folderId || null,
           teamId: selectedTeam?.team_id,
-          storageMode: selectedTeam?.storageMode ?? 'cloud',
+          storageMode: selectedTeam?.storageMode ?? 'local',
           initialUrls,
           initialNames,
           openSettings,
@@ -2196,3 +2196,4 @@ ${pageContent}
 };
 
 export default App;
+

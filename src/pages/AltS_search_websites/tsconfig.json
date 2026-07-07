@@ -4,8 +4,8 @@
     "baseUrl": ".",
     "paths": {
       "@src/*": ["src/*", "../AltS_search_newtab/src/*"],
-      "@private-providers/*": ["../../storage/_private/API/storage/providers/*", "../../storage/_private/API/storage/providers/private-mocks/*"],
-      "@private-services/*": ["../../storage/_private/API/services/*"]
+      "@private-providers/*": ["../../storage/API/storage/providers/*", "../../storage/API/storage/providers/private-mocks/*"],
+      "@private-services/*": ["../../storage/API/services/*"]
     },
     "types": ["chrome", "node"]
   },
@@ -19,3 +19,4 @@
     "../../welcomeGuide"
   ]
 }
+

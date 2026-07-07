@@ -39,11 +39,11 @@ export const resolveEditorItemsKindFromActiveEditor = (activeEditor: ActiveEdito
   resolveEditorItemsKind(activeEditor?.type ?? null);
 
 export const getEditorItemsLabel = (kind: EditorItemsKind | null) => {
-  if (kind === 'link') return 'Link';
-  if (kind === 'session') return 'Session';
-  if (kind === 'note') return 'Note';
-  if (kind === 'snippet') return 'Snippet';
-  if (kind === 'aiPrompt') return 'AI Prompt';
+  if (kind === 'link') return 'All links';
+  if (kind === 'session') return 'All sessions';
+  if (kind === 'note') return 'All notes';
+  if (kind === 'snippet') return 'All snippets';
+  if (kind === 'aiPrompt') return 'All prompts';
   return '';
 };
 

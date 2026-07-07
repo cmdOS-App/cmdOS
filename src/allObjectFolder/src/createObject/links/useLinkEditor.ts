@@ -17,6 +17,7 @@ import type { LinkRecord, CreateLinkInput, UpdateLinkInput, LinkItem } from './l
 import type { SharedProperties } from '../../../../shared-components/editorToolbar/types';
 import { useDbStore } from '../../../../storage/store/useDbStore';
 import { getSmartDefaultWorkspace } from '../../../../storage/localStorage/lastUsedWorkspace';
+import { StorageManager } from '../../../../storage/localStorage/storageManager';
 
 export interface UseLinkEditorParams {
   linkId?: string; // If provided, load this link
@@ -124,7 +125,7 @@ export function useLinkEditor(props: LinkEditorProps) {
       const smartWs = await getSmartDefaultWorkspace();
       if (smartWs) {
         setWorkspaceId(smartWs.id);
-        const savedFolderId = localStorage.getItem('lastUsedFolderId');
+        const savedFolderId = await StorageManager.getItem('lastUsedFolderId');
         setFolderId(savedFolderId || null);
       } else {
         setWorkspaceId(null);
@@ -151,6 +152,7 @@ export function useLinkEditor(props: LinkEditorProps) {
   const liveLink = useDbStore(state => state.links.find(l => l.id === activeLinkId));
 
   const isDirty = useMemo(() => {
+    if (!isInitialized) return false;
     const titleChanged = linkTitle !== lastSavedTitleRef.current;
     const workspaceChanged = workspaceId !== lastSavedWorkspaceIdRef.current;
     const folderChanged = folderId !== lastSavedFolderIdRef.current;
@@ -162,7 +164,7 @@ export function useLinkEditor(props: LinkEditorProps) {
     const tagsChanged = !areStringArraysEqual(tagIds, lastSavedTagIdsRef.current);
 
     return titleChanged || urlsChanged || workspaceChanged || folderChanged || tagsChanged;
-  }, [linkTitle, linkUrls, workspaceId, folderId, tagIds]);
+  }, [linkTitle, linkUrls, workspaceId, folderId, tagIds, isInitialized]);
 
   const handleSave = useCallback(async (silent: boolean = false, overrideProps?: SharedProperties | null): Promise<boolean> => {
     if (hasConflictRef.current) return false;
@@ -404,9 +406,11 @@ export function useLinkEditor(props: LinkEditorProps) {
         hasConflictRef.current = false;
 
         // Persist default selections to localStorage
-        if (savedLink.workspaceId) localStorage.setItem('lastUsedWorkspaceId', savedLink.workspaceId);
-        if (savedLink.folderId) localStorage.setItem('lastUsedFolderId', savedLink.folderId);
-        else localStorage.removeItem('lastUsedFolderId');
+        const wId = savedLink.workspaceId;
+        const fId = savedLink.folderId;
+        if (wId) void StorageManager.setItem('lastUsedWorkspaceId', wId);
+        if (fId) void StorageManager.setItem('lastUsedFolderId', fId);
+        else void StorageManager.removeItem('lastUsedFolderId');
 
         setConflictLink(null);
 
@@ -473,7 +477,11 @@ export function useLinkEditor(props: LinkEditorProps) {
   useEffect(() => {
     if (!isDirty) return;
 
-    setSaveStatus('saving'); // Show saving indicator immediately!
+    const hasTitle = linkTitle.trim().length > 0;
+    const hasUrls = linkUrls.length > 0;
+    if (activeLinkId || (hasTitle && hasUrls)) {
+      setSaveStatus('saving');
+    }
 
     if (autosaveTimerRef.current) {
       clearTimeout(autosaveTimerRef.current);
@@ -489,7 +497,7 @@ export function useLinkEditor(props: LinkEditorProps) {
         clearTimeout(autosaveTimerRef.current);
       }
     };
-  }, [linkTitle, linkUrls, workspaceId, folderId, tagIds, handleSave, isDirty]);
+  }, [linkTitle, linkUrls, workspaceId, folderId, tagIds, handleSave, isDirty, activeLinkId]);
 
   // Trigger pending save if user typed before initialization completed
   useEffect(() => {
@@ -707,6 +715,27 @@ export function useLinkEditor(props: LinkEditorProps) {
     void handleSave(false);
   }, [conflictLink, handleSave, setSaveStatus]);
 
+  const resetEditor = useCallback(() => {
+    activeLinkIdRef.current = null;
+    setActiveLinkId(null);
+    setLinkTitle('');
+    setLinkUrls([]);
+    lastSavedTitleRef.current = '';
+    lastSavedUrlsRef.current = [];
+    lastSavedWorkspaceIdRef.current = null;
+    lastSavedFolderIdRef.current = null;
+    lastSavedTagIdsRef.current = [];
+    lastSavedUpdatedAtRef.current = null;
+    setSaveStatus('idle');
+    setSaveError(null);
+    setLastSavedAt(null);
+    setIsLinkDeleted(false);
+    hasLoadedLiveLinkRef.current = false;
+    isImportedCloudSnippetRef.current = false;
+    hasConflictRef.current = false;
+    setConflictLink(null);
+  }, []);
+
   return {
     linkTitle,
     linkUrls,
@@ -734,6 +763,7 @@ export function useLinkEditor(props: LinkEditorProps) {
     setIsUnsavedChangesDialogOpen,
     handlePropertiesChange,
     resolveConflictWithRemote,
-    keepLocalVersion
+    keepLocalVersion,
+    resetEditor
   };
 }

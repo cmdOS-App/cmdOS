@@ -1,6 +1,7 @@
 import { createTodo } from '../../todos/todoData';
-import { useRelativeSavedTime } from '../../../../../shared-components/utils';
+import { AutoSaveIndicator } from '../../../../../shared-components/autoSaveEngine/autoSave';
 import { EditorContainer } from '../../../../../shared-components/editorContainer/EditorContainer';
+import { StorageManager } from '../../../../../storage/localStorage/storageManager';
 import { SharedPropertiesToolbar } from '../../../../../shared-components/editorToolbar/SharedPropertiesToolbar';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState, useImperativeHandle, forwardRef } from 'react';
@@ -46,7 +47,7 @@ import { getFaviconUrl } from '../../../../../pages/AltS_search_newtab/src/compo
 import { useUIStore } from '../../../../../shared-components/uiStateManager';
 import { clsx } from 'clsx';
 import { useFavorites } from '../../../../../shared-components/favorites/favoriteHooks';
-import { getUserId } from '../../../../../storage/_private/API/core/api';
+import { getUserId } from '../../../../../storage/API/core/api';
 import { deleteUserHotkeyByReference } from '../../../../../shared-components/hotkeys/core/hotkeyDbData';
 import { deleteUserShortcutByReference } from '../../../../../shared-components/shortcuts/core/shortcutDbData';
 import type { BrowserTab, SelectedLink, ContentTab } from '../linkTypes';
@@ -97,7 +98,12 @@ const LinkEditorView: React.FC<LinkEditorViewProps> = ({
         
       }
       setTimeout(() => {
-        titleInputRef.current?.focus();
+        const input = titleInputRef.current;
+        if (input) {
+          input.focus();
+          const length = input.value.length;
+          input.setSelectionRange(length, length);
+        }
       }, 150);
     }
   }, [isOpen, initialLinkProp]);
@@ -138,6 +144,7 @@ const LinkEditorView: React.FC<LinkEditorViewProps> = ({
     conflictLink,
     resolveConflictWithRemote,
     keepLocalVersion,
+    resetEditor,
   } = useLinkEditor({ linkId, initialDraftKey: prefill?.key, initialDraftUrls: EMPTY_INITIAL_URLS });
 
   // Determine mode based on whether a snippet is passed or has been saved
@@ -203,7 +210,7 @@ const LinkEditorView: React.FC<LinkEditorViewProps> = ({
   }, [initialLink]);
 
   const clearStashedBackup = useCallback(() => {
-    localStorage.removeItem(getBackupKey());
+    void StorageManager.removeItem(getBackupKey());
   }, [getBackupKey]);
 
 
@@ -1383,7 +1390,7 @@ const LinkEditorView: React.FC<LinkEditorViewProps> = ({
           teamId,
           timestamp: Date.now()
         };
-        localStorage.setItem(getBackupKey(), JSON.stringify(backupData));
+        void StorageManager.setItem(getBackupKey(), backupData);
       }
     };
 
@@ -1397,31 +1404,29 @@ const LinkEditorView: React.FC<LinkEditorViewProps> = ({
   useEffect(() => {
     if (!isOpen) return;
 
-    const rawBackup = localStorage.getItem(getBackupKey());
-    if (rawBackup) {
-      try {
-        const backup = JSON.parse(rawBackup);
-        if (backup && Date.now() - backup.timestamp < 24 * 60 * 60 * 1000) {
-          
-          setTitle(backup.title || '');
-          setSelectedLinks(backup.selectedLinks || []);
-          if (backup.targetWorkspaceId) {
-            setManualWorkspaceId(backup.targetWorkspaceId);
+    StorageManager.getItem(getBackupKey()).then((backup: any) => {
+      if (backup) {
+        try {
+          if (Date.now() - backup.timestamp < 24 * 60 * 60 * 1000) {
+            
+            setTitle(backup.title || '');
+            setSelectedLinks(backup.selectedLinks || []);
+            if (backup.targetWorkspaceId) {
+              setManualWorkspaceId(backup.targetWorkspaceId);
+            }
+            if (backup.folderIdForSave) {
+              setManualFolderId(backup.folderIdForSave);
+            }
+            // Clear backup after successful restoration so it doesn't loop
+            void StorageManager.removeItem(getBackupKey());
+            showFooterStatus('success', 'Restored unsaved changes');
           }
-          if (backup.folderIdForSave) {
-            setManualFolderId(backup.folderIdForSave);
-          }
-          // Clear backup after successful restoration so it doesn't loop
-          localStorage.removeItem(getBackupKey());
-          showFooterStatus('success', 'Restored unsaved changes');
+        } catch (err) {
+          console.error('[LinkEditModal] Failed to restore stashed backup:', err);
         }
-      } catch (err) {
-        console.error('[LinkEditModal] Failed to restore stashed backup:', err);
       }
-    }
+    });
   }, [isOpen, getBackupKey]);
-
-  const lastSavedMessage = useRelativeSavedTime(lastSavedAt);
 
   useEffect(() => {
     if (isEditMode && isOpen && !hasSyncedInitialDataRef.current) {
@@ -1436,20 +1441,15 @@ const LinkEditorView: React.FC<LinkEditorViewProps> = ({
     selectedLinks,
   ]);
 
-  const handleCreateNew = useCallback(() => {
+  const handleCreateNew = useCallback(async () => {
+    // Save current link list before creating new
+    await executeSave(false);
+
     setIsForceCreateNew(true);
-    setTitle('');
-    setSelectedLinks([]);
+    resetEditor();
     setLocalLinkOverride(null);
     hasInitializedPrefill.current = false;
     hasSyncedInitialDataRef.current = false;
-    
-    
-    
-    
-    
-    
-    
         
     setCustomLinkUrl('');
     setCustomLinkName('');
@@ -1458,7 +1458,7 @@ const LinkEditorView: React.FC<LinkEditorViewProps> = ({
     if (titleInputRef.current) {
       titleInputRef.current.focus();
     }
-  }, []);
+  }, [executeSave, resetEditor]);
 
   const handleCloseAttempt = useCallback(async () => {
     // Explicitly force a final save before closing.
@@ -1487,9 +1487,7 @@ const LinkEditorView: React.FC<LinkEditorViewProps> = ({
       // Create New Shortcut strictly on Ctrl+Shift+Enter
       else if (event.ctrlKey && event.shiftKey && event.key === 'Enter') {
         event.preventDefault();
-        if (isEditMode) {
-          handleCreateNew();
-        }
+        handleCreateNew();
       }
       // Location Picker Shortcut: Alt+Enter (Win) -> Option+Enter (Mac)
       else if (
@@ -1528,6 +1526,7 @@ const LinkEditorView: React.FC<LinkEditorViewProps> = ({
     isEditMode,
     isLeftCustomLinkFormOpen,
     isCustomLinkFormOpen,
+    handleCreateNew,
   ]);
 
   // Browser-level warning for unsaved changes commented out per request
@@ -1735,31 +1734,12 @@ const LinkEditorView: React.FC<LinkEditorViewProps> = ({
             {/* Main Content Area (Centered) */}
             <div className="w-full flex flex-col items-stretch justify-start flex-shrink-0">
               <div className="w-full flex items-center py-2.5 px-2 border-b border-white/50 dark:border-white/10">
-                {/* Title Input - Left */}
+                {/* Static Heading - Left */}
                 <div className="flex items-center flex-1 min-w-0 relative">
-                  {!title && <span className="text-red-500/50 text-xl font-bold select-none shrink-0 ml-2">*</span>}
-                  <input
-                    ref={titleInputRef}
-                    value={title}
-                    onChange={event => {
-                      setTitle(event.target.value);
-                      setIsTitleManuallyModified(true);
-                      hasUserModifiedRef.current = true;
-                    }}
-                    onKeyDown={e => {
-                      if (e.key === 'ArrowRight') {
-                        if (e.currentTarget.selectionStart === e.currentTarget.value.length) {
-                          e.preventDefault();
-                          closeButtonRef.current?.focus();
-                        }
-                      }
-                    }}
-                    placeholder="Collection Title"
-                    className="flex-1 text-2xl font-semibold text-[#073642] dark:text-neutral-200 placeholder-[var(--color-textPlaceholder)] bg-transparent outline-none border-none transition-all min-w-0 pl-1"
-                  />
+                  <h3 className="text-lg font-bold text-neutral-800 dark:text-neutral-200 pl-2">Link</h3>
 
                   {saveStatus === 'error' && saveError && (
-                    <span className="flex items-center gap-1.5 whitespace-nowrap text-[#ef4444]">
+                    <span className="flex items-center gap-1.5 whitespace-nowrap text-[#ef4444] ml-4">
                       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
                       {saveError}
                     </span>
@@ -1768,29 +1748,11 @@ const LinkEditorView: React.FC<LinkEditorViewProps> = ({
 
                 {/* Auto-save indicator */}
                 {!saveError && (
-                  <div className="flex items-center gap-1 ml-2 transition-opacity duration-300">
-                    {(isEditMode || title.trim().length > 0) && (
-                      <>
-                        {saveStatus === 'saving' && (
-                          <span className="text-sm font-medium text-[#93a1a1] dark:text-neutral-500 flex items-center gap-1 whitespace-nowrap">
-                            Saving...
-                          </span>
-                        )}
-
-                        {saveStatus === 'saved' && (
-                          <span className="text-sm font-medium text-[#93a1a1] dark:text-neutral-500 flex items-center gap-1 whitespace-nowrap">
-                            {lastSavedMessage} <FaCheckCircle className="opacity-70 text-xs text-emerald-500" />
-                          </span>
-                        )}
-
-                        {saveStatus === 'conflict' && (
-                          <span className="text-sm font-medium text-amber-600 dark:text-amber-500 flex items-center gap-1 whitespace-nowrap">
-                            Conflict
-                          </span>
-                        )}
-                      </>
-                    )}
-                  </div>
+                  <AutoSaveIndicator
+                    saveStatus={saveStatus}
+                    lastSavedAt={lastSavedAt}
+                    className="ml-2"
+                  />
                 )}
 
                 <div className="flex items-center gap-3 ml-auto relative">
@@ -1822,23 +1784,50 @@ const LinkEditorView: React.FC<LinkEditorViewProps> = ({
             </div>
 
             {/* Floating Cards Container */}
-            <div className="w-full flex-1 flex min-h-0 items-stretch">
+            <div className="w-full flex-1 flex flex-col min-h-0 items-stretch px-5 pt-4">
+              {/* Collection Name Field */}
+              <div className="flex flex-col gap-1.5 mb-6">
+                <h4 className="text-sm font-semibold text-neutral-700 dark:text-neutral-300">Link collection name</h4>
+                <div className="relative rounded-xl border border-black/5 dark:border-white/5 bg-black/[0.02] dark:bg-white/[0.02] overflow-hidden px-4 py-2.5 flex items-center">
+                  <input
+                    ref={titleInputRef}
+                    value={title}
+                    onChange={event => {
+                      setTitle(event.target.value);
+                      setIsTitleManuallyModified(true);
+                      hasUserModifiedRef.current = true;
+                    }}
+                    onKeyDown={e => {
+                      if (e.key === 'ArrowRight') {
+                        if (e.currentTarget.selectionStart === e.currentTarget.value.length) {
+                          e.preventDefault();
+                          closeButtonRef.current?.focus();
+                        }
+                      }
+                    }}
+                    placeholder="Give your link a name..."
+                    className="flex-1 text-sm font-medium text-black dark:text-white placeholder-[var(--color-textPlaceholder)]/70 bg-transparent outline-none border-none shadow-none focus:ring-0 transition-all min-w-0"
+                  />
+                </div>
+              </div>
+
               {/* MAIN LIST: Content Bar Source */}
               <div className="w-full flex-1 flex flex-col min-w-0 relative">
+                <h4 className="text-sm font-semibold text-neutral-700 dark:text-neutral-300 mb-2">
+                  Links ({allRenderedItems.length})
+                </h4>
                 {/* List */}
                 <div
                   ref={listContainerRef}
                   className={clsx(
-                    "flex-1 min-h-0 bg-transparent w-full max-h-[min(480px,calc(100vh-280px))]",
+                    "flex-1 min-h-0 w-full max-h-[min(480px,calc(100vh-280px))]",
+                    "rounded-xl border border-black/5 dark:border-white/5 bg-black/[0.02] dark:bg-white/[0.02] overflow-hidden",
                     (isLeftCustomLinkFormOpen && linkSuggestions.length > 0)
                       ? "overflow-visible"
                       : "overflow-y-auto custom-scrollbar"
                   )}>
-                  <div className="flex flex-col w-full px-3 mt-2 pb-8">
+                  <div className="flex flex-col w-full divide-y divide-black/5 dark:divide-white/5 pb-2">
                     {(() => {
-                      const renderedSelected = allRenderedItems.filter(i => i.isAdded);
-                      const renderedActive = allRenderedItems.filter(i => !i.isAdded);
-
                       const renderItem = (item: any, isAdded: boolean, idx: number, globalIdx: number) => {
                         const handleToggle = (e?: React.MouseEvent) => {
                           if (e) {
@@ -1928,21 +1917,20 @@ const LinkEditorView: React.FC<LinkEditorViewProps> = ({
                             }`}>
                             <div className="flex-shrink-0 relative">{itemIcon}</div>
 
-                            <div className="flex-1 min-w-0 flex items-baseline gap-2">
+                             <div className="flex-1 min-w-0 flex items-center justify-between gap-4">
                               <div
-                                className={`text-[13.5px] font-normal tracking-tight truncate flex-shrink-0 max-w-[65%] ${
-                                  isAdded
-                                    ? 'text-white'
-                                    : 'text-[#F5F5F5]'
-                                }`}
+                                className={clsx(
+                                  "text-[13px] font-medium tracking-tight truncate flex-shrink-0 max-w-[65%]",
+                                  isAdded ? "text-neutral-800 dark:text-neutral-100" : "text-neutral-500 dark:text-neutral-400"
+                                )}
                                 style={{ fontFamily: "'Inter', -apple-system, sans-serif" }}>
                                 {item.name}
                               </div>
                               <div
                                 className={clsx(
-                                  'text-[10.5px] font-normal truncate flex-1 min-w-0 transition-opacity duration-200',
-                                  focusedTabIndex === globalIdx ? 'opacity-100' : 'opacity-40 group-hover:opacity-100',
-                                  'text-neutral-400',
+                                  'text-[11px] font-normal truncate transition-opacity duration-200 text-right min-w-0',
+                                  focusedTabIndex === globalIdx ? 'opacity-100' : 'opacity-50 group-hover:opacity-100',
+                                  'text-neutral-400 dark:text-neutral-500',
                                 )}>
                                 {itemLabel}
                               </div>
@@ -2026,198 +2014,144 @@ const LinkEditorView: React.FC<LinkEditorViewProps> = ({
                       };
 
                       return (
-                        <div className="flex flex-col gap-2">
-                          {/* Selected Section */}
-                          {(renderedSelected.length > 0 || (activeContentTab === 'Current Tabs' && isLeftCustomLinkFormOpen)) && (
-                            <div className="flex flex-col">
-                              <h3 className="text-xs font-bold text-neutral-500 dark:text-neutral-500 tracking-wider text-left bg-transparent pt-1 pb-1.5 flex items-center mb-1">
-                                <div className="flex items-center gap-1.5">
-                                  <span>Selected tabs</span>
-                                  {renderedSelected.length > 0 && (
-                                    <span className="text-xs font-bold text-neutral-400 dark:text-neutral-500">
-                                      ({renderedSelected.length})
-                                    </span>
-                                  )}
-                                </div>
-                              </h3>
+                        <>
+                          {/* All Items */}
+                          {allRenderedItems.map((wrap, idx) => renderItem(wrap.item, wrap.isAdded, idx, idx))}
+
+                          {/* Custom link form appended inside the card wrapper when input form is open */}
+                          {isLeftCustomLinkFormOpen && (
+                            <div
+                              ref={el => {
+                                tabItemRefs.current[allRenderedItems.length] = el as any;
+                              }}
+                              className="flex items-center gap-3 py-2 px-3 transition-all focus:outline-none bg-transparent relative z-50 last:rounded-b-xl">
                               
-                              <div className={clsx(
-                                "flex flex-col border border-[#eee8d5] dark:border-white/10 rounded-xl divide-y divide-[#eee8d5] dark:divide-white/10 bg-[#fdf6e3]/10 dark:bg-white/[0.02]",
-                                (!isLeftCustomLinkFormOpen && activeContentTab === 'Current Tabs' && renderedSelected.length > 0) ? "mb-2" : "mb-3"
-                              )}>
-                                {/* Selected Items */}
-                                {renderedSelected.length > 0 && (
-                                  renderedSelected.map((wrap, idx) => renderItem(wrap.item, wrap.isAdded, idx, idx))
+                              {/* Inline Text Input */}
+                              <div className="flex-1 min-w-0 flex items-center gap-1.5 justify-start">
+                                {(allRenderedItems.length === 0 && !customLinkUrl) && (
+                                  <span className="text-red-500/50 text-[13.5px] font-bold select-none shrink-0">*</span>
                                 )}
+                                <input
+                                  ref={customLinkUrlRef}
+                                  value={customLinkUrl}
+                                  onChange={event => setCustomLinkUrl(event.target.value)}
+                                  onKeyDown={event => {
+                                    if (
+                                      linkSuggestions.length > 0 &&
+                                      (event.key === 'ArrowDown' || event.key === 'ArrowUp')
+                                    ) {
+                                      event.preventDefault();
+                                      if (event.key === 'ArrowDown') {
+                                        setFocusedSuggestionIndex(prev =>
+                                          Math.min(prev + 1, linkSuggestions.length - 1),
+                                        );
+                                      } else {
+                                        setFocusedSuggestionIndex(prev => Math.max(prev - 1, -1));
+                                      }
+                                      return;
+                                    }
 
-                                {/* Custom link form appended inside the card wrapper when input form is open */}
-                                {activeContentTab === 'Current Tabs' && isLeftCustomLinkFormOpen && (
-                                  <div
-                                    ref={el => {
-                                      tabItemRefs.current[allRenderedItems.length] = el as any;
-                                    }}
-                                    className="flex items-center gap-3 py-2 px-3 transition-all focus:outline-none bg-transparent relative z-50 last:rounded-b-xl">
-                                    
-                                    {/* Inline Text Input */}
-                                    <div className="flex-1 min-w-0 flex items-center gap-1.5 justify-start">
-                                      {(renderedSelected.length === 0 && !customLinkUrl) && (
-                                        <span className="text-red-500/50 text-[13.5px] font-bold select-none shrink-0">*</span>
-                                      )}
-                                      <input
-                                        ref={customLinkUrlRef}
-                                        value={customLinkUrl}
-                                        onChange={event => setCustomLinkUrl(event.target.value)}
-                                        onKeyDown={event => {
-                                          if (
-                                            linkSuggestions.length > 0 &&
-                                            (event.key === 'ArrowDown' || event.key === 'ArrowUp')
-                                          ) {
-                                            event.preventDefault();
-                                            if (event.key === 'ArrowDown') {
-                                              setFocusedSuggestionIndex(prev =>
-                                                Math.min(prev + 1, linkSuggestions.length - 1),
-                                              );
-                                            } else {
-                                              setFocusedSuggestionIndex(prev => Math.max(prev - 1, -1));
-                                            }
-                                            return;
-                                          }
+                                    if (event.key === 'Enter') {
+                                      event.preventDefault();
+                                      event.stopPropagation();
 
-                                          if (event.key === 'Enter') {
-                                            event.preventDefault();
-                                            event.stopPropagation();
+                                      if (focusedSuggestionIndex >= 0 && linkSuggestions[focusedSuggestionIndex]) {
+                                        const item = linkSuggestions[focusedSuggestionIndex];
+                                        setSelectedLinks(prev => [
+                                          ...prev,
+                                          {
+                                            id: `custom-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+                                            url: item.url,
+                                            name: item.title || getHostname(item.url),
+                                            source: 'custom',
+                                            favIconUrl: getFaviconUrl(getHostname(item.url)),
+                                          },
+                                        ]);
+                                        setCustomLinkUrl('');
+                                        setCustomLinkName('');
+                                        setLinkSuggestions([]);
+                                        setTimeout(() => {
+                                          customLinkUrlRef.current?.focus();
+                                        }, 50);
+                                        return;
+                                      }
 
-                                            if (focusedSuggestionIndex >= 0 && linkSuggestions[focusedSuggestionIndex]) {
-                                              const item = linkSuggestions[focusedSuggestionIndex];
-                                              setSelectedLinks(prev => [
-                                                ...prev,
-                                                {
-                                                  id: `custom-${Date.now()}-${Math.random().toString(16).slice(2)}`,
-                                                  url: item.url,
-                                                  name: item.title || getHostname(item.url),
-                                                  source: 'custom',
-                                                  favIconUrl: getFaviconUrl(getHostname(item.url)),
-                                                },
-                                              ]);
-                                              setCustomLinkUrl('');
-                                              setCustomLinkName('');
-                                              setLinkSuggestions([]);
-                                              setTimeout(() => {
-                                                customLinkUrlRef.current?.focus();
-                                              }, 50);
-                                              return;
-                                            }
-
-                                            handleAddCustomLink();
-                                          } else if (event.key === 'Escape') {
-                                            event.preventDefault();
-                                            event.stopPropagation();
-                                            setIsLeftCustomLinkFormOpen(false);
+                                      handleAddCustomLink();
+                                    } else if (event.key === 'Escape') {
+                                      event.preventDefault();
+                                      event.stopPropagation();
+                                      setIsLeftCustomLinkFormOpen(false);
+                                      setCustomLinkUrl('');
+                                      setCustomLinkName('');
+                                    }
+                                  }}
+                                  placeholder="Add a link URL..."
+                                  autoFocus
+                                  className="w-full bg-transparent border-none text-[13.5px] font-normal text-[#073642] dark:text-neutral-100 placeholder-[var(--color-textPlaceholder)]/50 focus:outline-none h-6"
+                                  style={{ fontFamily: "'Inter', -apple-system, sans-serif" }}
+                                />
+                                {linkSuggestions.length > 0 && (
+                                  <div className="absolute top-full left-0 mt-2 w-full bg-white dark:bg-[#1C1C1E] border border-[#eee8d5] dark:border-white/10 rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.5)] z-[99] overflow-hidden max-h-[250px] flex flex-col">
+                                    <div className="px-3 py-1.5 text-[10px] font-bold text-[#93a1a1] dark:text-neutral-500  tracking-wider bg-[#fdf6e3]/50 dark:bg-black/20 border-b border-[#eee8d5] dark:border-white/5">
+                                      Suggestions
+                                    </div>
+                                    <div className="overflow-y-auto custom-scrollbar">
+                                      {linkSuggestions.map((suggestion, idx) => (
+                                        <div
+                                          key={idx}
+                                          className={`px-3 py-2 cursor-pointer flex items-center gap-3 transition-colors ${
+                                            focusedSuggestionIndex === idx
+                                              ? 'bg-[#3B66AE] text-white'
+                                              : 'hover:bg-[#fdf6e3] dark:hover:bg-white/5 text-[#073642] dark:text-neutral-200'
+                                          }`}
+                                          onClick={() => {
+                                            const id = `custom-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+                                            setSelectedLinks(prev => [
+                                              ...prev,
+                                              {
+                                                id,
+                                                url: suggestion.url,
+                                                name: suggestion.title || getHostname(suggestion.url),
+                                                source: 'custom',
+                                                favIconUrl: getFaviconUrl(getHostname(suggestion.url)),
+                                              },
+                                            ]);
                                             setCustomLinkUrl('');
                                             setCustomLinkName('');
-                                          }
-                                        }}
-                                        placeholder="Add a link URL..."
-                                        autoFocus
-                                        className="w-full bg-transparent border-none text-[13.5px] font-normal text-[#073642] dark:text-neutral-100 placeholder-[var(--color-textPlaceholder)]/50 focus:outline-none h-6"
-                                        style={{ fontFamily: "'Inter', -apple-system, sans-serif" }}
-                                      />
-                                      {linkSuggestions.length > 0 && (
-                                        <div className="absolute top-full left-0 mt-2 w-full bg-white dark:bg-[#1C1C1E] border border-[#eee8d5] dark:border-white/10 rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.5)] z-[99] overflow-hidden max-h-[250px] flex flex-col">
-                                          <div className="px-3 py-1.5 text-[10px] font-bold text-[#93a1a1] dark:text-neutral-500  tracking-wider bg-[#fdf6e3]/50 dark:bg-black/20 border-b border-[#eee8d5] dark:border-white/5">
-                                            Suggestions
+                                            setLinkSuggestions([]);
+                                            setTimeout(() => {
+                                              customLinkUrlRef.current?.focus();
+                                            }, 50);
+                                          }}>
+                                          <div className="flex-shrink-0 relative">
+                                            <img
+                                              src={getFaviconUrl(getHostname(suggestion.url))}
+                                              alt=""
+                                              className="w-3.5 h-3.5 rounded-sm object-cover"
+                                              onError={(e) => {
+                                                e.currentTarget.style.display = 'none';
+                                                e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                                              }}
+                                            />
+                                            <div className="hidden w-3.5 h-3.5 rounded flex items-center justify-center text-[#93a1a1]">
+                                              {suggestion.source === 'bookmark' ? <FaBookmark size={10} /> : <FaHistory size={10} />}
+                                            </div>
                                           </div>
-                                          <div className="overflow-y-auto custom-scrollbar">
-                                            {linkSuggestions.map((suggestion, idx) => (
-                                              <div
-                                                key={idx}
-                                                className={`px-3 py-2 cursor-pointer flex items-center gap-3 transition-colors ${
-                                                  focusedSuggestionIndex === idx
-                                                    ? 'bg-[#3B66AE] text-white'
-                                                    : 'hover:bg-[#fdf6e3] dark:hover:bg-white/5 text-[#073642] dark:text-neutral-200'
-                                                }`}
-                                                onClick={() => {
-                                                  const id = `custom-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-                                                  setSelectedLinks(prev => [
-                                                    ...prev,
-                                                    {
-                                                      id,
-                                                      url: suggestion.url,
-                                                      name: suggestion.title || getHostname(suggestion.url),
-                                                      source: 'custom',
-                                                      favIconUrl: getFaviconUrl(getHostname(suggestion.url)),
-                                                    },
-                                                  ]);
-                                                  setCustomLinkUrl('');
-                                                  setCustomLinkName('');
-                                                  setLinkSuggestions([]);
-                                                  setTimeout(() => {
-                                                    customLinkUrlRef.current?.focus();
-                                                  }, 50);
-                                                }}>
-                                                <div className="flex-shrink-0 relative">
-                                                  <img
-                                                    src={getFaviconUrl(getHostname(suggestion.url))}
-                                                    alt=""
-                                                    className="w-3.5 h-3.5 rounded-sm object-cover"
-                                                    onError={(e) => {
-                                                      e.currentTarget.style.display = 'none';
-                                                      e.currentTarget.nextElementSibling?.classList.remove('hidden');
-                                                    }}
-                                                  />
-                                                  <div className="hidden w-3.5 h-3.5 rounded flex items-center justify-center text-[#93a1a1]">
-                                                    {suggestion.source === 'bookmark' ? <FaBookmark size={10} /> : <FaHistory size={10} />}
-                                                  </div>
-                                                </div>
-                                                <div className="flex-1 min-w-0">
-                                                  <div
-                                                    className={`font-medium truncate ${focusedSuggestionIndex === idx ? 'text-white' : 'text-[#586e75] dark:text-neutral-200'}`}>
-                                                    {suggestion.title}
-                                                  </div>
-                                                  <div
-                                                    className={`truncate opacity-80 text-[10px] ${focusedSuggestionIndex === idx ? 'text-white/70' : 'text-[#93a1a1]'}`}>
-                                                    {suggestion.url}
-                                                  </div>
-                                                </div>
-                                              </div>
-                                            ))}
+                                          <div className="flex-1 min-w-0">
+                                            <div
+                                              className={`font-medium truncate ${focusedSuggestionIndex === idx ? 'text-white' : 'text-[#586e75] dark:text-neutral-200'}`}>
+                                              {suggestion.title}
+                                            </div>
+                                            <div
+                                              className={`truncate opacity-80 text-[10px] ${focusedSuggestionIndex === idx ? 'text-white/70' : 'text-[#93a1a1]'}`}>
+                                              {suggestion.url}
+                                            </div>
                                           </div>
                                         </div>
-                                      )}
+                                      ))}
                                     </div>
                                   </div>
                                 )}
-                              </div>
-
-                              {!isLeftCustomLinkFormOpen && activeContentTab === 'Current Tabs' && renderedSelected.length > 0 && (
-                                <div className="flex justify-center w-full mb-2">
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setIsLeftCustomLinkFormOpen(true);
-                                      setCustomLinkUrl('');
-                                    }}
-                                    className="p-2 rounded-full border border-[var(--color-borderDefault)] hover:bg-[#eee8d5] dark:hover:bg-neutral-800 text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200 transition-colors flex items-center justify-center"
-                                    title="Add Custom Link"
-                                  >
-                                    <FaPlus size={14} />
-                                  </button>
-                                </div>
-                              )}
-                            </div>
-                          )}
-
-                          {/* Active Tabs Section */}
-                          {renderedActive.length > 0 && (
-                            <div className="flex flex-col">
-                              <h3 className="text-xs font-bold text-neutral-500 dark:text-neutral-500 tracking-wider text-left bg-transparent pt-1 pb-1.5 flex items-center mb-1">
-                                <span>{activeContentTab === 'All saved files' ? 'Saved files' : 'Current tabs'}</span>
-                                <span className="ml-1 text-xs font-bold text-neutral-400 dark:text-neutral-500">
-                                  ({renderedActive.length})
-                                </span>
-                              </h3>
-                              <div className="flex flex-col border border-[#eee8d5] dark:border-white/10 rounded-xl overflow-hidden divide-y divide-[#eee8d5] dark:divide-white/10 bg-[#fdf6e3]/10 dark:bg-white/[0.02]">
-                                {renderedActive.map((wrap, idx) => renderItem(wrap.item, wrap.isAdded, idx, renderedSelected.length + idx))}
                               </div>
                             </div>
                           )}
@@ -2244,7 +2178,7 @@ const LinkEditorView: React.FC<LinkEditorViewProps> = ({
                               </button>
                             </div>
                           )}
-                        </div>
+                        </>
                       );
                     })()}
                   </div>
@@ -2630,3 +2564,4 @@ const LinkEditorView: React.FC<LinkEditorViewProps> = ({
 };
 
 export default LinkEditorView;
+

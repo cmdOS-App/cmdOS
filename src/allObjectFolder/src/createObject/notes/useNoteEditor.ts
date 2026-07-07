@@ -23,6 +23,7 @@ import {
 import { getNote } from './noteData';
 import { useDbStore } from '../../../../storage/store/useDbStore';
 import { getSmartDefaultWorkspace } from '../../../../storage/localStorage/lastUsedWorkspace';
+import { StorageManager } from '../../../../storage/localStorage/storageManager';
 
 const ENABLE_DEBUG_LOGS = false;
 const AUTOSAVE_DELAY_MS = 1000;
@@ -135,13 +136,15 @@ export function useNoteEditor(props: NoteEditorViewProps) {
     noteBodyRef.current = initialDraftContent || '';
     isDirtyRef.current = false;
     setIsDirty(false);
+    setSaveStatus('idle');
+    setLastSavedAt(null);
 
     // Load default workspace (falling back to smart default) and folder
     const initDefaults = async () => {
       const smartWs = await getSmartDefaultWorkspace();
       if (smartWs) {
         setWorkspaceId(smartWs.id);
-        const savedFolderId = localStorage.getItem('lastUsedFolderId');
+        const savedFolderId = await StorageManager.getItem('lastUsedFolderId');
         setFolderId(savedFolderId || null);
       } else {
         setWorkspaceId(null);
@@ -463,9 +466,9 @@ export function useNoteEditor(props: NoteEditorViewProps) {
           tagCount: savedNote.tagIds.length,
         });
 
-        if (savedNote.workspaceId) localStorage.setItem('lastUsedWorkspaceId', savedNote.workspaceId);
-        if (savedNote.folderId) localStorage.setItem('lastUsedFolderId', savedNote.folderId);
-        else localStorage.removeItem('lastUsedFolderId');
+        if (savedNote.workspaceId) StorageManager.setItem('lastUsedWorkspaceId', savedNote.workspaceId);
+        if (savedNote.folderId) StorageManager.setItem('lastUsedFolderId', savedNote.folderId);
+        else StorageManager.removeItem('lastUsedFolderId');
 
         setLastSavedAt(new Date(savedNote.updatedAt));
         setConflictNote(null);
@@ -884,10 +887,10 @@ export function useNoteEditor(props: NoteEditorViewProps) {
       tagIds: tIds,
     };
 
-    // Persist changes to localStorage for defaults
-    if (wId) localStorage.setItem('lastUsedWorkspaceId', wId);
-    if (fId) localStorage.setItem('lastUsedFolderId', fId);
-    else localStorage.removeItem('lastUsedFolderId');
+    // Persist changes to StorageManager for defaults
+    if (wId) StorageManager.setItem('lastUsedWorkspaceId', wId);
+    if (fId) StorageManager.setItem('lastUsedFolderId', fId);
+    else StorageManager.removeItem('lastUsedFolderId');
 
     noteEditorLog('properties persisted locally', {
       workspaceId: wId,
@@ -952,6 +955,21 @@ export function useNoteEditor(props: NoteEditorViewProps) {
     return handleSave();
   }, [conflictNote, handleSave]);
 
+  const resetEditor = useCallback(() => {
+    activeNoteIdRef.current = null;
+    setActiveNoteId(null);
+    setNoteTitle('');
+    setNoteBody('');
+    noteBodyRef.current = '';
+    isDirtyRef.current = false;
+    setIsDirty(false);
+    setSaveStatus('idle');
+    setLastSavedAt(null);
+    hasLoadedLiveNoteRef.current = false;
+    hasConflictRef.current = false;
+    setConflictNote(null);
+  }, []);
+
   const syncRevision = liveNote?.updatedAt ?? 0;
 
   return {
@@ -982,5 +1000,6 @@ export function useNoteEditor(props: NoteEditorViewProps) {
     syncRevision,
     resolveConflictWithRemote,
     keepLocalVersion,
+    resetEditor,
   };
 }

@@ -4,9 +4,9 @@
     "baseUrl": ".",
     "paths": {
       "@src/*": ["src/*"],
-      "@private-providers/*": ["../src/storage/_private/API/storage/providers/*"],
-      "@private-services/*": ["../src/storage/_private/API/services/*"],
-      "@config/*": ["src/config/*"],
+      "@private-providers/*": ["../src/storage/API/storage/providers/*"],
+      "@private-services/*": ["../src/storage/API/services/*"],
+      "@config/*": ["../src/storage/API/core/*"],
 
       "@automation/*": ["src/automation/*"],
       "@todos/*": ["src/todos/*"],
@@ -23,3 +23,4 @@
   },
   "include": ["src", "utils", "vite.config.mts", "manifest.ts", "../node_modules/@types"]
 }
+

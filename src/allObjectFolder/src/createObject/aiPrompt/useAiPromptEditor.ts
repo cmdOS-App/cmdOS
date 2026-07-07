@@ -18,6 +18,7 @@ import { createAiPrompt, updateAiPrompt } from './aiPromptData';
 import type { AiPromptRecord, CreateAiPromptInput, UpdateAiPromptInput } from './aiPromptTypes';
 import { useAiPrompt } from './aiPromptHooks';
 import { getSmartDefaultWorkspace } from '../../../../storage/localStorage/lastUsedWorkspace';
+import { StorageManager } from '../../../../storage/localStorage/storageManager';
 
 export interface AiPromptEditorProps {
   aiPromptId?: string | null;
@@ -127,7 +128,7 @@ export function useAiPromptEditor(props: AiPromptEditorProps) {
       const smartWs = await getSmartDefaultWorkspace();
       if (smartWs) {
         setWorkspaceId(smartWs.id);
-        const savedFolderId = localStorage.getItem('lastUsedFolderId');
+        const savedFolderId = await StorageManager.getItem('lastUsedFolderId');
         setFolderId(savedFolderId || null);
       } else {
         setWorkspaceId(null);
@@ -161,6 +162,7 @@ export function useAiPromptEditor(props: AiPromptEditorProps) {
   const liveAiPrompt = useAiPrompt(activeAiPromptId);
 
   const isDirty = useMemo(() => {
+    if (!isInitialized) return false;
     const titleChanged = promptTitle !== lastSavedTitleRef.current;
     const promptChanged = promptBody !== lastSavedPromptRef.current;
     const rulesChanged = promptRules !== lastSavedRulesRef.current;
@@ -170,7 +172,7 @@ export function useAiPromptEditor(props: AiPromptEditorProps) {
     const tagsChanged = [...tagIds].sort().join(',') !== [...lastSavedTagIdsRef.current].sort().join(',');
 
     return titleChanged || promptChanged || rulesChanged || modelUrlsChanged || workspaceChanged || folderChanged || tagsChanged;
-  }, [promptTitle, promptBody, promptRules, modelUrls, workspaceId, folderId, tagIds]);
+  }, [promptTitle, promptBody, promptRules, modelUrls, workspaceId, folderId, tagIds, isInitialized]);
 
   useEffect(() => {
     if (!liveAiPrompt) return;
@@ -372,9 +374,11 @@ export function useAiPromptEditor(props: AiPromptEditorProps) {
       lastSavedFolderIdRef.current = savedRecord.folderId;
       lastSavedTagIdsRef.current = savedRecord.tagIds;
 
-      if (savedRecord.workspaceId) localStorage.setItem('lastUsedWorkspaceId', savedRecord.workspaceId);
-      if (savedRecord.folderId) localStorage.setItem('lastUsedFolderId', savedRecord.folderId);
-      else localStorage.removeItem('lastUsedFolderId');
+      const wId = savedRecord.workspaceId;
+      const fId = savedRecord.folderId;
+      if (wId) void StorageManager.setItem('lastUsedWorkspaceId', wId);
+      if (fId) void StorageManager.setItem('lastUsedFolderId', fId);
+      else void StorageManager.removeItem('lastUsedFolderId');
 
       setSaveStatus('saved');
       setLastSavedAt(new Date(savedRecord.updatedAt));
@@ -396,7 +400,7 @@ export function useAiPromptEditor(props: AiPromptEditorProps) {
     if (autosaveTimerRef.current) {
       clearTimeout(autosaveTimerRef.current);
     }
-    const delay = 1500; // Increased debounce for performance
+    const delay = 1000;
     autosaveTimerRef.current = setTimeout(() => {
       handleSave();
     }, delay);

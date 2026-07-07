@@ -15,12 +15,15 @@ import {
 } from 'react-icons/fi';
 import { 
   executeDriveBackup, 
-  getDriveToken, 
+  getDriveToken,
+  disconnectDrive, 
   listBackupsFromDrive, 
   downloadBackupFromDrive,
   DriveFolder
 } from '../logic/driveApi';
 import { exportLocalZipBackup } from '../logic/zipExport';
+import { enableAutoBackup, disableAutoBackup } from '../logic/scheduler';
+import { StorageManager } from '../../../storage/localStorage/storageManager';
 import { extractDatabaseToJSON } from '../logic/extractData';
 import { restoreDatabaseFromJSON } from '../logic/restoreData';
 import { useDbStore } from '../../../storage/store/useDbStore';
@@ -57,6 +60,7 @@ export const BackupSettings: React.FC<BackupSettingsProps> = ({ onClose }) => {
   const [version, setVersion] = useState(1);
   const [backups, setBackups] = useState<DriveFolder[]>([]);
   const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
+  const [isAutoBackupEnabled, setIsAutoBackupEnabled] = useState(false);
 
   const lastSyncedMessage = useRelativeSavedTime(lastSyncedAt);
 
@@ -78,10 +82,11 @@ export const BackupSettings: React.FC<BackupSettingsProps> = ({ onClose }) => {
       }
     });
 
-    chrome.storage.local.get(['user_email', 'email'], (res) => {
+    StorageManager.getItem(['user_email', 'email', 'autoBackupEnabled']).then((res) => {
       if (res.user_email || res.email) {
         setUserEmail(res.user_email || res.email);
       }
+      setIsAutoBackupEnabled(res.autoBackupEnabled ?? false);
     });
   }, []);
 
@@ -90,7 +95,7 @@ export const BackupSettings: React.FC<BackupSettingsProps> = ({ onClose }) => {
     if (!activeWorkspace?.id) return;
     const modeKey = `backupMode_${activeWorkspace.id}`;
     const syncTimeKey = `lastSyncedAt_${activeWorkspace.id}`;
-    chrome.storage.local.get([modeKey, syncTimeKey], (res) => {
+    StorageManager.getItem([modeKey, syncTimeKey]).then((res) => {
       setBackupMode(res[modeKey] || 'local');
       if (res[syncTimeKey]) {
         setLastSyncedAt(new Date(res[syncTimeKey]));
@@ -108,18 +113,30 @@ export const BackupSettings: React.FC<BackupSettingsProps> = ({ onClose }) => {
       if (activeWorkspace?.id) {
         const modeKey = `backupMode_${activeWorkspace.id}`;
         setBackupMode('drive');
-        chrome.storage.local.set({ [modeKey]: 'drive' });
+        await StorageManager.setItem(modeKey, 'drive');
       }
       await loadBackups();
       chrome.identity.getProfileUserInfo?.((userInfo) => {
         if (userInfo && userInfo.email) {
           setUserEmail(userInfo.email);
-          chrome.storage.local.set({ user_email: userInfo.email });
+          StorageManager.setItem('user_email', userInfo.email);
         }
       });
     } catch (err) {
       console.error('Failed to connect to Google Drive', err);
       alert('Authentication failed.');
+    }
+  };
+
+  const handleDisconnect = async () => {
+    try {
+      await disconnectDrive();
+      setIsConnected(false);
+      setUserEmail('');
+      handleSwitchMode('local');
+      await StorageManager.removeItem(['user_email', 'email']);
+    } catch (err) {
+      console.error('Failed to disconnect from Google Drive', err);
     }
   };
 
@@ -130,7 +147,7 @@ export const BackupSettings: React.FC<BackupSettingsProps> = ({ onClose }) => {
       handleConnect();
     } else {
       setBackupMode(mode);
-      chrome.storage.local.set({ [modeKey]: mode });
+      StorageManager.setItem(modeKey, mode);
     }
   };
 
@@ -140,6 +157,17 @@ export const BackupSettings: React.FC<BackupSettingsProps> = ({ onClose }) => {
       setBackups(list);
     } catch (err) {
       console.error('Failed to load backups', err);
+    }
+  };
+
+  const handleToggleAutoBackup = () => {
+    const newValue = !isAutoBackupEnabled;
+    setIsAutoBackupEnabled(newValue);
+    StorageManager.setItem('autoBackupEnabled', newValue);
+    if (newValue) {
+      enableAutoBackup();
+    } else {
+      disableAutoBackup();
     }
   };
 
@@ -154,7 +182,7 @@ export const BackupSettings: React.FC<BackupSettingsProps> = ({ onClose }) => {
         const now = new Date();
         setLastSyncedAt(now);
         if (activeWorkspace?.id) {
-          chrome.storage.local.set({ [`lastSyncedAt_${activeWorkspace.id}`]: now.toISOString() });
+          StorageManager.setItem(`lastSyncedAt_${activeWorkspace.id}`, now.toISOString());
         }
 
         alert('Backup completed successfully! Uploaded to Google Drive.');
@@ -356,6 +384,16 @@ export const BackupSettings: React.FC<BackupSettingsProps> = ({ onClose }) => {
                 {isConnected && lastSyncedAt && (
                   <span className="text-[10px] text-emerald-400 mt-1">Synced {lastSyncedMessage}</span>
                 )}
+                {isConnected && backups.length > 0 && (
+                  <div className="flex flex-col items-center mt-2 p-2 bg-[var(--color-hoverBg)] rounded border border-[var(--color-borderDefault)]">
+                    <span className="text-[10px] text-[var(--color-textSecondary)]">
+                      {backups.length} backup folder{backups.length !== 1 ? 's' : ''} in Drive
+                    </span>
+                    <span className="text-[10px] text-[var(--color-textSecondary)] mt-0.5">
+                      Latest: {new Date(backups[0].createdTime).toLocaleString()}
+                    </span>
+                  </div>
+                )}
               </div>
 
               <p className="text-xs text-[var(--color-textSecondary)] text-center leading-relaxed px-4">
@@ -363,6 +401,24 @@ export const BackupSettings: React.FC<BackupSettingsProps> = ({ onClose }) => {
                   ? 'Backups are automatically synced to Drive.'
                   : 'Backups are saved to Drive and can be accessed from anywhere.'}
               </p>
+
+              {backupMode === 'drive' && isConnected && (
+                <div className="flex items-center justify-between px-4 mt-4 mb-2 bg-[var(--color-hoverBg)] p-2.5 rounded-lg border border-[var(--color-borderDefault)]">
+                  <div className="flex flex-col">
+                    <span className="text-xs font-semibold text-white">Auto-backup</span>
+                    <span className="text-[10px] text-[var(--color-textMuted)]">Triggers every 8 hours</span>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input 
+                      type="checkbox" 
+                      className="sr-only peer" 
+                      checked={isAutoBackupEnabled}
+                      onChange={handleToggleAutoBackup}
+                    />
+                    <div className="w-8 h-4 bg-neutral-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-blue-500"></div>
+                  </label>
+                </div>
+              )}
             </div>
 
             <div className="mt-8 space-y-2">
@@ -399,11 +455,17 @@ export const BackupSettings: React.FC<BackupSettingsProps> = ({ onClose }) => {
                     className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-transparent hover:bg-[var(--color-hoverBg)] text-white font-semibold rounded-xl border border-[var(--color-borderDefault)] transition-all text-xs cursor-pointer disabled:opacity-50 disabled:pointer-events-none disabled:cursor-not-allowed"
                   >
                     <FiDownloadBackupIcon />
-                    Download backup
-                  </button>
+                    Download backup                  </button>
 
-
-
+                  {isConnected && (
+                    <button
+                      onClick={handleDisconnect}
+                      disabled={isSyncing || isRestoring}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-red-600/10 hover:bg-red-600/20 text-red-500 font-semibold rounded-xl border border-red-500/20 transition-all text-xs cursor-pointer disabled:opacity-50 disabled:pointer-events-none disabled:cursor-not-allowed mt-4"
+                    >
+                      Disconnect Drive
+                    </button>
+                  )}
                 </>
               ) : (
                 <button

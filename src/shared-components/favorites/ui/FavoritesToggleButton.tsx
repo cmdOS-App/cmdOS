@@ -2,6 +2,7 @@ import type React from 'react';
 import { useState } from 'react';
 import { BsStar, BsStarFill } from 'react-icons/bs';
 import { useUIStore } from '../../uiStateManager';
+import { StorageManager } from '../../../storage/localStorage/storageManager';
 
 const FavoritesToggleButton: React.FC = () => {
   const [isAnimating, setIsAnimating] = useState<boolean>(false);
@@ -15,11 +16,8 @@ const FavoritesToggleButton: React.FC = () => {
       const nextValue = !showFavorites;
       setShowFavorites(nextValue);
 
-      // Persist to chrome storage
-      const chrome = (window as any).chrome;
-      if (chrome?.storage?.local) {
-        chrome.storage.local.set({ showFavorites: nextValue });
-      }
+      // Persist to storage
+      StorageManager.setItem('showFavorites', nextValue);
 
       // Reset animation state after toggle is complete
       setTimeout(() => setIsAnimating(false), 300);

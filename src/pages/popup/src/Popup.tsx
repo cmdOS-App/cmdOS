@@ -8,7 +8,9 @@ import UserProfile from './UserProfile';
 import { FaTimes, FaSync, FaKeyboard } from 'react-icons/fa';
 import { GoAlert } from 'react-icons/go';
 import { BsLink45Deg } from 'react-icons/bs';
-import { CMDOS_REDIRECT_URL, CMDOS_DOCS_URL, CMDOS_SIGN_IN_URL } from '../../../storage/_private/API/core/apiConfig';
+import { CMDOS_REDIRECT_URL, CMDOS_DOCS_URL } from '../../../storage/API/core/apiConfig';
+import { CMDOS_SIGN_IN_URL } from '../../../storage/API/core/api';
+import { FEATURE_FLAGS } from '../../AltS_search_newtab/src/utils/featureFlags';
 
 const getOS = () => {
   const platform = window.navigator.platform.toLowerCase();
@@ -374,7 +376,7 @@ const Popup = () => {
     );
   }
 
-  if (!isLoggedIn) {
+  if (FEATURE_FLAGS.ENABLE_SHARING && !isLoggedIn) {
     return (
       <>
         <LoginGuide websiteUrl={CMDOS_SIGN_IN_URL} />
@@ -397,15 +399,16 @@ const Popup = () => {
         </div>
 
         <div className="flex items-center gap-4">
-          {/* Avatar Group with Overlapping Badge */}
-          <UserProfile
-            user={{
-              name: userName || userEmail?.split('@')[0] || 'User',
-              email: userEmail,
-              avatar_url: userProfileImg,
-            }}
-            onSignOut={handleSignOut}
-          />
+          {FEATURE_FLAGS.ENABLE_SHARING && (
+            <UserProfile
+              user={{
+                name: userName || userEmail?.split('@')[0] || 'User',
+                email: userEmail,
+                avatar_url: userProfileImg,
+              }}
+              onSignOut={handleSignOut}
+            />
+          )}
 
           <button
             onClick={() => window.close()}
@@ -530,3 +533,4 @@ export default withErrorBoundary(
   withSuspense(Popup, <div className="p-4 text-center">Loading...</div>),
   <div className="p-4 text-center text-red-500">An error occurred. Please try again.</div>,
 );
+

@@ -2,7 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 
 import { FEATURE_FLAGS } from '../../pages/AltS_search_newtab/src/utils/featureFlags';
-import { CMDOS_SIGN_UP_URL } from '../../storage/_private/API/core/apiConfig';
+import { CMDOS_SIGN_UP_URL } from '../../storage/API/core/api';
 
 interface LoginButtonProps {
   isLoggedIn: boolean;
@@ -37,3 +37,4 @@ const LoginButton: React.FC<LoginButtonProps> = ({ isLoggedIn, userId }) => {
 };
 
 export default LoginButton;
+

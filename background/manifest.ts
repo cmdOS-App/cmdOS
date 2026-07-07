@@ -25,7 +25,6 @@ const manifest = {
   description: '__MSG_extensionDescription__',
   host_permissions: [
     'https://www.cmdos.app/*',
-    
     'https://chatgpt.com/*',
     'https://claude.ai/*',
     'https://gemini.google.com/*',

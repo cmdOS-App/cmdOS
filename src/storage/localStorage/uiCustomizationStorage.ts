@@ -31,12 +31,12 @@ export const getStoredWallpaperId = async (): Promise<string> => {
     const chromeAny = (window as any).chrome;
     if (chromeAny?.storage?.local) {
       const result = await new Promise<any>(resolve => chromeAny.storage.local.get(['appearance-wallpaper'], resolve));
-      return result['appearance-wallpaper'] || 'default-wallpaper.png';
+      return result['appearance-wallpaper'] || 'car-race.png';
     }
   } catch (e) {
     console.error('Failed to get stored wallpaper ID:', e);
   }
-  return 'default-wallpaper.png';
+  return 'car-race.png';
 };
 
 export const setStoredWallpaperId = async (wallpaperId: string): Promise<void> => {

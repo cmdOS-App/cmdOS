@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAppearance } from '@extension/ui';
-import { FiChevronUp, FiChevronDown } from 'react-icons/fi';
+import { FiChevronUp, FiChevronDown, FiZap, FiFolder } from 'react-icons/fi';
+import { FaCode, FaLink, FaRobot, FaLayerGroup, FaBuilding } from 'react-icons/fa';
+import { BsCalendarCheck } from 'react-icons/bs';
+import NotesIcon from '../../../../../shared-components/icons/notesIcon';
 
 
 interface CreateMenuPanelProps {
@@ -82,12 +85,15 @@ export const CreateMenuPanel: React.FC<CreateMenuPanelProps> = ({ onCommandSelec
         return (
           <div
             key="createlinks"
-            className="flex items-center cursor-pointer group py-[4px] pl-[12px]"
+            className="flex items-center cursor-pointer group py-[4px] pl-[12px] gap-2 rounded-md hover:bg-black/5 dark:hover:bg-white/5 transition-colors duration-150"
             onClick={(e) => {
               e.stopPropagation();
               onCommandSelect('createlinks');
             }}
           >
+            <div className="w-4 h-4 flex items-center justify-center shrink-0">
+              <FaLink size={14} className="text-blue-400 shrink-0" />
+            </div>
             <span
               className={`text-[12px] font-semibold tracking-tight transition-colors duration-150 ${
                 isDark
@@ -103,12 +109,15 @@ export const CreateMenuPanel: React.FC<CreateMenuPanelProps> = ({ onCommandSelec
         return (
           <div
             key="createsession"
-            className="flex items-center cursor-pointer group py-[4px] pl-[12px]"
+            className="flex items-center cursor-pointer group py-[4px] pl-[12px] gap-2 rounded-md hover:bg-black/5 dark:hover:bg-white/5 transition-colors duration-150"
             onClick={(e) => {
               e.stopPropagation();
               onCommandSelect('createsession');
             }}
           >
+            <div className="w-4 h-4 flex items-center justify-center shrink-0">
+              <FaLayerGroup size={14} className="text-purple-400 shrink-0" />
+            </div>
             <span
               className={`text-[12px] font-semibold tracking-tight transition-colors duration-150 ${
                 isDark
@@ -124,12 +133,15 @@ export const CreateMenuPanel: React.FC<CreateMenuPanelProps> = ({ onCommandSelec
         return (
           <div
             key="createnotes"
-            className="flex items-center cursor-pointer group py-[4px] pl-[12px]"
+            className="flex items-center cursor-pointer group py-[4px] pl-[12px] gap-2 rounded-md hover:bg-black/5 dark:hover:bg-white/5 transition-colors duration-150"
             onClick={(e) => {
               e.stopPropagation();
               onCommandSelect('createnotes');
             }}
           >
+            <div className="w-4 h-4 flex items-center justify-center shrink-0">
+              <NotesIcon size={14} className="shrink-0 text-amber-400" />
+            </div>
             <span
               className={`text-[12px] font-semibold tracking-tight transition-colors duration-150 ${
                 isDark
@@ -145,12 +157,15 @@ export const CreateMenuPanel: React.FC<CreateMenuPanelProps> = ({ onCommandSelec
         return (
           <div
             key="ai"
-            className="flex items-center cursor-pointer group py-[4px] pl-[12px]"
+            className="flex items-center cursor-pointer group py-[4px] pl-[12px] gap-2 rounded-md hover:bg-black/5 dark:hover:bg-white/5 transition-colors duration-150"
             onClick={(e) => {
               e.stopPropagation();
               onCommandSelect('ai');
             }}
           >
+            <div className="w-4 h-4 flex items-center justify-center shrink-0">
+              <FaRobot size={14} className="text-indigo-400 shrink-0" />
+            </div>
             <span
               className={`text-[12px] font-semibold tracking-tight transition-colors duration-150 ${
                 isDark
@@ -166,12 +181,15 @@ export const CreateMenuPanel: React.FC<CreateMenuPanelProps> = ({ onCommandSelec
         return (
           <div
             key="createtodo"
-            className="flex items-center cursor-pointer group py-[4px] pl-[12px]"
+            className="flex items-center cursor-pointer group py-[4px] pl-[12px] gap-2 rounded-md hover:bg-black/5 dark:hover:bg-white/5 transition-colors duration-150"
             onClick={(e) => {
               e.stopPropagation();
               onCommandSelect('createtodo');
             }}
           >
+            <div className="w-4 h-4 flex items-center justify-center shrink-0">
+              <BsCalendarCheck size={14} className="text-[var(--color-iconDefault)] shrink-0" />
+            </div>
             <span
               className={`text-[12px] font-semibold tracking-tight transition-colors duration-150 ${
                 isDark
@@ -187,12 +205,15 @@ export const CreateMenuPanel: React.FC<CreateMenuPanelProps> = ({ onCommandSelec
         return (
           <div
             key="agent"
-            className="flex items-center cursor-pointer group py-[4px] pl-[12px]"
+            className="flex items-center cursor-pointer group py-[4px] pl-[12px] gap-2 rounded-md hover:bg-black/5 dark:hover:bg-white/5 transition-colors duration-150"
             onClick={(e) => {
               e.stopPropagation();
               onCommandSelect('agent');
             }}
           >
+            <div className="w-4 h-4 flex items-center justify-center shrink-0">
+              <FiZap size={14} className="text-amber-400 shrink-0" />
+            </div>
             <span
               className={`text-[12px] font-semibold tracking-tight transition-colors duration-150 ${
                 isDark
@@ -208,12 +229,15 @@ export const CreateMenuPanel: React.FC<CreateMenuPanelProps> = ({ onCommandSelec
         return (
           <div
             key="createsnippet"
-            className="flex items-center cursor-pointer group py-[4px] pl-[12px]"
+            className="flex items-center cursor-pointer group py-[4px] pl-[12px] gap-2 rounded-md hover:bg-black/5 dark:hover:bg-white/5 transition-colors duration-150"
             onClick={(e) => {
               e.stopPropagation();
               onCommandSelect('createsnippet');
             }}
           >
+            <div className="w-4 h-4 flex items-center justify-center shrink-0">
+              <FaCode size={14} className="text-[var(--color-iconDefault)] shrink-0" />
+            </div>
             <span
               className={`text-[12px] font-semibold tracking-tight transition-colors duration-150 ${
                 isDark
@@ -229,12 +253,15 @@ export const CreateMenuPanel: React.FC<CreateMenuPanelProps> = ({ onCommandSelec
         return (
           <div
             key="createfolder"
-            className="flex items-center cursor-pointer group py-[4px] pl-[12px]"
+            className="flex items-center cursor-pointer group py-[4px] pl-[12px] gap-2 rounded-md hover:bg-black/5 dark:hover:bg-white/5 transition-colors duration-150"
             onClick={(e) => {
               e.stopPropagation();
               onCommandSelect('createfolder');
             }}
           >
+            <div className="w-4 h-4 flex items-center justify-center shrink-0">
+              <FiFolder size={14} className="text-amber-500 shrink-0" />
+            </div>
             <span
               className={`text-[12px] font-semibold tracking-tight transition-colors duration-150 ${
                 isDark
@@ -250,12 +277,15 @@ export const CreateMenuPanel: React.FC<CreateMenuPanelProps> = ({ onCommandSelec
         return (
           <div
             key="createworkspace"
-            className="flex items-center cursor-pointer group py-[4px] pl-[12px]"
+            className="flex items-center cursor-pointer group py-[4px] pl-[12px] gap-2 rounded-md hover:bg-black/5 dark:hover:bg-white/5 transition-colors duration-150"
             onClick={(e) => {
               e.stopPropagation();
               onCommandSelect('createworkspace');
             }}
           >
+            <div className="w-4 h-4 flex items-center justify-center shrink-0">
+              <FaBuilding size={13} className="text-teal-400 shrink-0" />
+            </div>
             <span
               className={`text-[12px] font-semibold tracking-tight transition-colors duration-150 ${
                 isDark

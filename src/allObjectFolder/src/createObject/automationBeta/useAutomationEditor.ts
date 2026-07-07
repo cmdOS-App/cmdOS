@@ -18,6 +18,7 @@ import type { SharedProperties } from '../../../../shared-components/editorToolb
 import type { AutomationStep } from './utilities/automation';
 import { useAutomation } from './automationHooks';
 import { getSmartDefaultWorkspace } from '../../../../storage/localStorage/lastUsedWorkspace';
+import { StorageManager } from '../../../../storage/localStorage/storageManager';
 
 export interface AutomationEditorProps {
   automationId?: string | null;
@@ -78,7 +79,7 @@ export function useAutomationEditor(props: AutomationEditorProps) {
       const smartWs = await getSmartDefaultWorkspace();
       if (smartWs) {
         setWorkspaceId(smartWs.id);
-        const savedFolderId = localStorage.getItem('lastUsedFolderId');
+        const savedFolderId = await StorageManager.getItem('lastUsedFolderId');
         setFolderId(savedFolderId || null);
       } else {
         setWorkspaceId(null);
@@ -231,9 +232,9 @@ export function useAutomationEditor(props: AutomationEditorProps) {
         lastSavedFolderIdRef.current = savedAutomation.folderId;
         lastSavedTagIdsRef.current = savedAutomation.tagIds;
 
-        if (savedAutomation.workspaceId) localStorage.setItem('lastUsedWorkspaceId', savedAutomation.workspaceId);
-        if (savedAutomation.folderId) localStorage.setItem('lastUsedFolderId', savedAutomation.folderId);
-        else localStorage.removeItem('lastUsedFolderId');
+        if (savedAutomation.workspaceId) await StorageManager.setItem('lastUsedWorkspaceId', savedAutomation.workspaceId);
+        if (savedAutomation.folderId) await StorageManager.setItem('lastUsedFolderId', savedAutomation.folderId);
+        else await StorageManager.removeItem('lastUsedFolderId');
 
         if (!silent) {
           setSaveStatus('saved');
@@ -335,9 +336,9 @@ export function useAutomationEditor(props: AutomationEditorProps) {
     setFolderId(fId);
     setTagIds(tIds);
 
-    if (wId) localStorage.setItem('lastUsedWorkspaceId', wId);
-    if (fId) localStorage.setItem('lastUsedFolderId', fId);
-    else localStorage.removeItem('lastUsedFolderId');
+    if (wId) void StorageManager.setItem('lastUsedWorkspaceId', wId);
+    if (fId) void StorageManager.setItem('lastUsedFolderId', fId);
+    else void StorageManager.removeItem('lastUsedFolderId');
 
     if (prevWsId !== wId || prevFId !== fId) {
       void handleSave(true, newProps);

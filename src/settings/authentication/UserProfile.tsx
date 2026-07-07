@@ -1,9 +1,8 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import React, { useEffect, useState, useRef } from 'react';
 import { FaCog, FaSignOutAlt, FaUser } from 'react-icons/fa';
-import { getUserId, getUserInfo } from '../../storage/_private/API/core/api';
+import { getUserId, getUserInfo, CMDOS_SIGN_UP_URL, CMDOS_SUBSCRIPTION_URL } from '../../storage/API/core/api';
 import { FEATURE_FLAGS } from '../../pages/AltS_search_newtab/src/utils/featureFlags';
-import { CMDOS_SIGN_UP_URL, CMDOS_SUBSCRIPTION_URL } from '../../storage/_private/API/core/apiConfig';
 
 const LoginView: React.FC = () => {
   const iconUrl = chrome.runtime.getURL('popup/tasklabs_logo.png');
@@ -180,7 +179,6 @@ const UserProfile: React.FC = () => {
                   </div>
                   <div className="flex-1 min-w-0">
                     <h3 className="text-sm font-semibold text-[var(--color-textPrimary)] truncate">{userInfo.name}</h3>
-                    <p className="text-xs text-[var(--color-textMuted)] truncate">{userInfo.email}</p>
                   </div>
                 </div>
 
@@ -213,3 +211,4 @@ const UserProfile: React.FC = () => {
 };
 
 export default UserProfile;
+

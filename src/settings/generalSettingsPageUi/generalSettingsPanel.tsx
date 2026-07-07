@@ -12,12 +12,10 @@ import {
   getStoredLayoutViewMode, 
   setStoredLayoutViewMode 
 } from '../../storage/localStorage/uxCustomizationStorage';
-import { getUserId, getUserInfo } from '../../storage/_private/API/core/api';
-
-
+import { StorageManager } from '../../storage/localStorage/storageManager';
+import { getUserId, getUserInfo, CMDOS_SIGN_UP_URL } from '../../storage/API/core/api';
 import { getFaviconUrl } from '../../pages/AltS_search_newtab/src/components/searchSystemComponents/searchBarMain/utilityFunctions/utils';
 import { FEATURE_FLAGS } from '../../pages/AltS_search_newtab/src/utils/featureFlags';
-import { CMDOS_SIGN_UP_URL } from '../../storage/_private/API/core/apiConfig';
 import ThemeSettings from '../uiPersonalization/ThemeSettings';
 
 interface GeneralSettingsPanelProps {
@@ -29,15 +27,14 @@ interface GeneralSettingsPanelProps {
 
 const GeneralSettingsPanel: React.FC<GeneralSettingsPanelProps> = ({ onClose, initialTab = 'searchView', hideSidebar, isLoggedIn }) => {
   // Search View settings hooks
-  // Search View settings hooks
   const [autoTriggerDropdown, setAutoTriggerDropdownInternal] = useState(true);
   useEffect(() => {
-    getStoredSearchFocusPreference().then(val => setAutoTriggerDropdownInternal(val));
+    StorageManager.getItem('search_focus_preference').then(val => val !== null && setAutoTriggerDropdownInternal(val));
   }, []);
 
   const setAutoTriggerDropdown = async (val: boolean) => {
     setAutoTriggerDropdownInternal(val);
-    await setStoredSearchFocusPreference(val);
+    await StorageManager.setItem('search_focus_preference', val);
   };
 
   const todoDisplayMode = useUIStore(s => s.todoDisplayMode);
@@ -48,31 +45,8 @@ const GeneralSettingsPanel: React.FC<GeneralSettingsPanelProps> = ({ onClose, in
   const [hoveredLayout, setHoveredLayout] = useState<'board' | 'sheet' | null>(null);
 
   // Profile data states
-  const [userInfo, setUserInfo] = useState<{ email: string; name: string; image_url?: string; avatar_url?: string } | null>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const cached = localStorage.getItem('user_info');
-        if (cached) return JSON.parse(cached);
-      } catch (e) {
-        console.error('[GeneralSettingsPanel] Failed to parse cached user_info:', e);
-      }
-    }
-    return null;
-  });
-  const [userInitials, setUserInitials] = useState<string>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const cached = localStorage.getItem('user_info');
-        if (cached) {
-          const parsed = JSON.parse(cached);
-          const name = parsed.name || 'Me';
-          const parts = name.split(/\s+/);
-          return parts.filter(Boolean).map((p: string) => p[0]).join('').toUpperCase().slice(0, 2) || 'ME';
-        }
-      } catch (e) {}
-    }
-    return 'ME';
-  });
+  const [userInfo, setUserInfo] = useState<{ email: string; name: string; image_url?: string; avatar_url?: string } | null>(null);
+  const [userInitials, setUserInitials] = useState<string>('ME');
   // Tab Selection State
   const [activeTab, setActiveTab] = useState<'profile' | 'searchView' | 'appearance'>(() => {
     if (initialTab === 'appearance') return 'appearance';
@@ -83,46 +57,33 @@ const GeneralSettingsPanel: React.FC<GeneralSettingsPanelProps> = ({ onClose, in
   const [storageLoaded, setStorageLoaded] = useState<boolean>(false);
 
   useEffect(() => {
-    const chromeAny = (window as any).chrome;
-    if (chromeAny?.storage?.local) {
-      chromeAny.storage.local.get(['user_info', 'user_name', 'accessToken'], (res: any) => {
-        console.log('[GeneralSettingsPanel] Initial storage loaded:', {
-          user_info: res.user_info,
-          user_name: res.user_name,
-          accessToken: res.accessToken
-        });
-        const nameVal = res.user_info?.name || res.user_name;
-        const name = typeof nameVal === 'string' ? nameVal : 'Me';
-        const parts = name.split(/\s+/);
-        const initials = parts.filter(Boolean).map((p: string) => p[0]).join('').toUpperCase().slice(0, 2);
-        if (initials) {
-          setUserInitials(initials);
-        }
-        if (res.user_info) {
-          setUserInfo(res.user_info);
-          if (typeof window !== 'undefined') {
-            try {
-              localStorage.setItem('user_info', JSON.stringify(res.user_info));
-            } catch (e) {}
-          }
-        } else if (res.user_name) {
-          const defaultInfo = { name: res.user_name, email: 'user@cmdos.dev' };
-          setUserInfo(defaultInfo);
-          if (typeof window !== 'undefined') {
-            try {
-              localStorage.setItem('user_info', JSON.stringify(defaultInfo));
-            } catch (e) {}
-          }
-        }
-
-        const token = res.accessToken;
-        const cloudUser = !!(token && typeof token === 'string' && token.startsWith('user_'));
-        setIsCloudUser(cloudUser);
-        setStorageLoaded(true);
+    StorageManager.getItem(['user_info', 'user_name', 'accessToken']).then((res: any) => {
+      console.log('[GeneralSettingsPanel] Initial storage loaded:', {
+        user_info: res.user_info,
+        user_name: res.user_name,
+        accessToken: res.accessToken
       });
-    } else {
+      const nameVal = res.user_info?.name || res.user_name;
+      const name = typeof nameVal === 'string' ? nameVal : 'Me';
+      const parts = name.split(/\s+/);
+      const initials = parts.filter(Boolean).map((p: string) => p[0]).join('').toUpperCase().slice(0, 2);
+      if (initials) {
+        setUserInitials(initials);
+      }
+      if (res.user_info) {
+        setUserInfo(res.user_info);
+        StorageManager.setItem('user_info', res.user_info);
+      } else if (res.user_name) {
+        const defaultInfo = { name: res.user_name, email: 'user@cmdos.dev' };
+        setUserInfo(defaultInfo);
+        StorageManager.setItem('user_info', defaultInfo);
+      }
+
+      const token = res.accessToken;
+      const cloudUser = !!(token && typeof token === 'string' && token.startsWith('user_'));
+      setIsCloudUser(cloudUser);
       setStorageLoaded(true);
-    }
+    });
   }, []);
 
   useEffect(() => {
@@ -167,14 +128,10 @@ const GeneralSettingsPanel: React.FC<GeneralSettingsPanelProps> = ({ onClose, in
   useEffect(() => {
     const fetchProfileData = async () => {
       try {
-        const chromeAny = (window as any).chrome;
-        if (!chromeAny?.storage?.local) return;
-
-        // Try getting cached data first
-        const storage = await chromeAny.storage.local.get(['user_info', 'personal_subscription']);
+        const storage: any = await StorageManager.getItem(['user_info', 'personal_subscription']);
         console.log('[GeneralSettingsPanel - fetchProfileData] local storage checked:', storage);
 
-        if (storage.user_info) {
+        if (storage?.user_info) {
           setUserInfo(storage.user_info);
         }
 
@@ -194,7 +151,7 @@ const GeneralSettingsPanel: React.FC<GeneralSettingsPanelProps> = ({ onClose, in
 
             const data = { email: user.email, name: fullName, image_url: user.image_url || user.profile_image_url };
             setUserInfo(data);
-            await chromeAny.storage.local.set({ user_info: data });
+            await StorageManager.setItem('user_info', data);
           }
 
 
@@ -242,7 +199,7 @@ const GeneralSettingsPanel: React.FC<GeneralSettingsPanelProps> = ({ onClose, in
   };
 
   const sidebarSections = [
-    ...(isCloudUser
+    ...(isCloudUser && FEATURE_FLAGS.ENABLE_SHARING
       ? [
         {
           title: 'ACCOUNT',
@@ -348,9 +305,6 @@ const GeneralSettingsPanel: React.FC<GeneralSettingsPanelProps> = ({ onClose, in
                   <div className="text-xs font-bold text-[var(--color-textPrimary)] truncate">
                     {userInfo?.name || 'User'}
                   </div>
-                  <div className="text-[10px] text-[var(--color-textMuted)] truncate mt-0.5">
-                    {userInfo?.email || 'user@cmdos.dev'}
-                  </div>
                 </div>
                 {isCloudUser && <FiChevronDown size={14} className="text-[var(--color-textMuted)] shrink-0" />}
               </div>
@@ -435,11 +389,8 @@ const GeneralSettingsPanel: React.FC<GeneralSettingsPanelProps> = ({ onClose, in
                     <h2 className="text-lg font-bold text-white truncate">
                       {userInfo?.name || 'Loading Name...'}
                     </h2>
-                    <p className="text-xs text-[var(--color-textSecondary)] mt-1 truncate">
-                      {userInfo?.email || 'Loading Email...'}
-                    </p>
                     <div className="flex flex-wrap gap-2 mt-3 items-center justify-center sm:justify-start">
-                      <span className="text-xs text-neutral-400 capitalize">{isCloudUser ? 'Cloud Account' : 'Local Account'}</span>
+                      <span className="text-xs text-neutral-400 capitalize">Local Account</span>
                     </div>
                   </div>
                 </div>
@@ -643,3 +594,4 @@ const GeneralSettingsPanel: React.FC<GeneralSettingsPanelProps> = ({ onClose, in
 };
 
 export default GeneralSettingsPanel;
+

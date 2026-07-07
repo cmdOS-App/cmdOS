@@ -7,7 +7,7 @@ import type React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { FiHelpCircle } from 'react-icons/fi';
-import { CMDOS_DOCS_URL } from '../../../../storage/_private/API/core/apiConfig';
+import { CMDOS_DOCS_URL } from '../../../../storage/API/core/apiConfig';
 import { AppTodoSidebar } from './AppTodoSidebar';
 import Branding from '../../../../shared-components/Branding';
 import { HeaderControls, getDefaultSettingsView } from '../../../../settings';
@@ -26,7 +26,7 @@ import { useDbStore } from '../../../../storage/store/useDbStore';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import useNotification from '../../../../shared-components/notifications/useNotification';
-import { getUserId } from '../../../../storage/_private/API/core/identity';
+import { getUserId } from '../../../../storage/API/core/api';
 import WallpaperLayer from '../../../../settings/uiPersonalization/WallpaperLayer';
 import { useAppearance } from '@extension/ui';
 
@@ -1373,6 +1373,7 @@ const App: React.FC = () => {
           selectedSnippet={selectedSnippet}
           showTutorial={showTutorial}
           setShowTutorial={setShowTutorial}
+          showSidebarColumn={showSidebarColumn}
         />
 
 
@@ -1410,4 +1411,5 @@ const App: React.FC = () => {
 };
 
 export default App;
+
 

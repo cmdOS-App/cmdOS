@@ -1,7 +1,7 @@
 import { withErrorBoundary, withSuspense } from '@extension/shared';
 import { useEffect, useMemo, useState } from 'react';
-import { getUserId } from '../../../storage/_private/API/core/api';
-import { CMDOS_REDIRECT_URL, CMDOS_SIGN_UP_URL } from '../../../storage/_private/API/core/apiConfig';
+import { getUserId, CMDOS_SIGN_UP_URL } from '../../../storage/API/core/api';
+import { CMDOS_REDIRECT_URL } from '../../../storage/API/core/apiConfig';
 
 
 import App from './landingPage/App';
@@ -114,3 +114,4 @@ export default withErrorBoundary(
   withSuspense(AltS_search_newtab, <></>),
   <ErrorFallback />,
 );
+

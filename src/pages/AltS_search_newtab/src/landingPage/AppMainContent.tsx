@@ -43,6 +43,7 @@ interface AppMainContentProps {
   selectedSnippet: any;
   showTutorial: boolean;
   setShowTutorial: React.Dispatch<React.SetStateAction<boolean>>;
+  showSidebarColumn?: boolean;
 }
 
 export const AppMainContent: React.FC<AppMainContentProps> = ({
@@ -85,7 +86,8 @@ export const AppMainContent: React.FC<AppMainContentProps> = ({
   isCreatingNewItem,
   selectedSnippet,
   showTutorial,
-  setShowTutorial
+  setShowTutorial,
+  showSidebarColumn
 }) => {
 
 
@@ -100,6 +102,7 @@ export const AppMainContent: React.FC<AppMainContentProps> = ({
             transition: 'filter 0.3s ease',
           }}>
           <Container
+            showSidebarColumn={showSidebarColumn}
          
             onSuggestionStateChange={setSuggestionState}
 

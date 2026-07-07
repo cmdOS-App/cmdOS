@@ -8,10 +8,10 @@ import TextEditor from '../../../../../shared-components/TextEditor';
 import { SharedPropertiesToolbar } from '../../../../../shared-components/editorToolbar/SharedPropertiesToolbar';
 import DeleteConfirmation from '../../../../../shared-components/modals/deleteDialog';
 import UnsavedChangesDialog from '../../../../../shared-components/modals/unsavedChangesDialog';
-import { FaCheckCircle, FaTimes } from 'react-icons/fa';
+import { FaTimes } from 'react-icons/fa';
+import { AutoSaveIndicator } from '../../../../../shared-components/autoSaveEngine/autoSave';
 import type { SharedProperties } from '../../../../../shared-components/editorToolbar/types';
 import { createTodo } from '../../todos/todoData';
-import { useRelativeSavedTime } from '../../../../../shared-components/utils';
 export interface NoteEditorViewProps {
   noteId?: string | null;
   onBack?: () => void;
@@ -42,8 +42,6 @@ export function NoteEditorView(props: NoteEditorViewProps) {
   const isFocusMode = useUIStore((s: any) => s.isFocusMode);
   const isEmbedded = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('embed') === 'true';
 
-  const lastSavedMessage = useRelativeSavedTime(state.lastSavedAt);
-
   const tagIdsKey = React.useMemo(() => [...state.tagIds].sort().join('|'), [state.tagIds]);
   const initialProperties = React.useMemo(() => {
     return {
@@ -57,8 +55,11 @@ export function NoteEditorView(props: NoteEditorViewProps) {
 
   React.useEffect(() => {
     const timer = setTimeout(() => {
-      if (state.titleInputRef.current) {
-        state.titleInputRef.current.focus();
+      const input = state.titleInputRef.current;
+      if (input) {
+        input.focus();
+        const length = input.value.length;
+        input.setSelectionRange(length, length);
       }
     }, 50);
     return () => clearTimeout(timer);
@@ -75,8 +76,7 @@ export function NoteEditorView(props: NoteEditorViewProps) {
     await state.handleSave();
 
     setIsForceCreateNew(true);
-    state.setNoteTitle('');
-    state.setNoteBody('');
+    state.resetEditor();
     defaultToolbarNameRef.current = '';
     if (state.titleInputRef.current) {
       state.titleInputRef.current.focus();
@@ -88,14 +88,12 @@ export function NoteEditorView(props: NoteEditorViewProps) {
       // Create New Shortcut strictly on Ctrl+Shift+Enter
       if (event.ctrlKey && event.shiftKey && event.key === 'Enter') {
         event.preventDefault();
-        if (state.activeNoteId) {
-          handleCreateNew();
-        }
+        handleCreateNew();
       }
     };
     window.addEventListener('keydown', handleShortcut);
     return () => window.removeEventListener('keydown', handleShortcut);
-  }, [state.activeNoteId, handleCreateNew]);
+  }, [handleCreateNew]);
 
   const handleDeleteClick = React.useCallback(() => {
     state.setIsDeleteDialogOpen(true);
@@ -150,33 +148,10 @@ export function NoteEditorView(props: NoteEditorViewProps) {
               <div className="flex-1 flex flex-col min-h-0 relative">
                 <div className="absolute top-4 right-4 md:top-5 md:right-5 z-50 flex items-center gap-3">
                   <div className="transition-opacity duration-300">
-                    {state.saveStatus !== 'idle' && (
-                      <>
-                        {state.saveStatus === 'saving' && (
-                          <span className="text-sm font-medium text-neutral-400 dark:text-neutral-500 flex items-center gap-1 whitespace-nowrap">
-                            Saving...
-                          </span>
-                        )}
-
-                        {state.saveStatus === 'saved' && (
-                          <span className="text-sm font-medium text-neutral-400 dark:text-neutral-500 flex items-center gap-1 whitespace-nowrap">
-                            {lastSavedMessage} <FaCheckCircle className="opacity-70 text-xs text-emerald-500" />
-                          </span>
-                        )}
-
-                        {state.saveStatus === 'error' && (
-                          <span className="text-sm font-medium text-red-500 dark:text-red-400 flex items-center gap-1 whitespace-nowrap">
-                            Save Failed <FaTimes className="opacity-70 text-xs" />
-                          </span>
-                        )}
-
-                        {state.saveStatus === 'conflict' && (
-                          <span className="text-sm font-medium text-amber-600 dark:text-amber-400 flex items-center gap-1 whitespace-nowrap">
-                            Conflict <FaTimes className="opacity-70 text-xs" />
-                          </span>
-                        )}
-                      </>
-                    )}
+                    <AutoSaveIndicator
+                      saveStatus={state.saveStatus}
+                      lastSavedAt={state.lastSavedAt}
+                    />
                   </div>
 
                   {state.conflictNote && (

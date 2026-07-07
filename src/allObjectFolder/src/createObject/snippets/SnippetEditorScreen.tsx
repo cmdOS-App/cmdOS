@@ -31,7 +31,7 @@ import { useUIStore } from '../../../../shared-components/uiStateManager';
 import { useDbStore } from '../../../../storage/store/useDbStore';
 import { useSnippetEditor } from './useSnippetEditor';
 import useNotification from '../../../../shared-components/notifications/useNotification';
-import { useRelativeSavedTime } from '../../../../shared-components/utils';
+import { AutoSaveIndicator } from '../../../../shared-components/autoSaveEngine/autoSave';
 
 /**
  * Helper to convert an AST JSON string into readable plain text.
@@ -138,7 +138,6 @@ const EditSnippetScreenComponent: React.FC<EditSnippetScreenProps> = ({
     initialDraftConfig: initialDraftContent,
   });
 
-  const lastSavedMessage = useRelativeSavedTime(lastSavedAt);
 
   const [showToolbar, setShowToolbar] = useState(true);
   const isUserKeyManuallySetRef = useRef(false);
@@ -218,8 +217,11 @@ const EditSnippetScreenComponent: React.FC<EditSnippetScreenProps> = ({
 
       // Wait a bit for the editor to be ready and content to be loaded
       const focusTimeout = setTimeout(() => {
-        if (titleInputRef.current) {
-          titleInputRef.current.focus();
+        const input = titleInputRef.current;
+        if (input) {
+          input.focus();
+          const length = input.value.length;
+          input.setSelectionRange(length, length);
         }
       }, 100); // Short timeout to ensure render
 
@@ -570,25 +572,12 @@ const EditSnippetScreenComponent: React.FC<EditSnippetScreenProps> = ({
                 )}
                 {/* Auto-save indicator */}
                 <div className="transition-opacity duration-300">
-                  {isDirty && (
-                    <>
-                      {saveStatus === 'saving' && (
-                        <span className="text-[10px] font-medium text-neutral-400 flex items-center gap-1 whitespace-nowrap">
-                          <FiLoader className="animate-spin" /> Saving...
-                        </span>
-                      )}
-                      {saveStatus !== 'saving' && (
-                        <span className="text-[10px] font-medium text-neutral-400 flex items-center gap-1 whitespace-nowrap opacity-70">
-                          Saving...
-                        </span>
-                      )}
-                    </>
-                  )}
-                  {!isDirty && activeSnippetId && (
-                    <span className="text-[10px] font-medium text-emerald-500 flex items-center gap-1 whitespace-nowrap">
-                      <FaCheckCircle className="opacity-90 text-[9px]" /> {lastSavedMessage}
-                    </span>
-                  )}
+                  <AutoSaveIndicator
+                    saveStatus={saveStatus}
+                    lastSavedAt={lastSavedAt}
+                    isDirty={isDirty}
+                    activeId={activeSnippetId}
+                  />
                 </div>
                 <button
                   onClick={() => isDirty ? setIsUnsavedChangesDialogOpen(true) : closeEditor()}

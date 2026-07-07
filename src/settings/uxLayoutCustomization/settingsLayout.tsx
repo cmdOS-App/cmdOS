@@ -14,8 +14,9 @@ import {
 import { FaUser, FaPalette, FaGithub } from 'react-icons/fa';
 
 import { getFaviconUrl } from '../../pages/AltS_search_newtab/src/components/searchSystemComponents/searchBarMain/utilityFunctions/utils';
+import { StorageManager } from '../../storage/localStorage/storageManager';
 import { FEATURE_FLAGS } from '../../pages/AltS_search_newtab/src/utils/featureFlags';
-import { CMDOS_SIGN_UP_URL } from '../../storage/_private/API/core/apiConfig';
+import { CMDOS_SIGN_UP_URL, checkHasCloudData } from '../../storage/API/core/api';
 
 // Lazy load/import the sub panels to avoid circular dependency or import issues.
 import GeneralSettingsPanel from '../generalSettingsPageUi/generalSettingsPanel';
@@ -41,78 +42,58 @@ interface SettingsLayoutProps {
 export const SettingsLayout: React.FC<SettingsLayoutProps> = ({ view, onClose, isLoggedIn }) => {
 
   // User info from chrome storage/localStorage
-  const [userInfo, setUserInfo] = useState<{ email: string; name: string; image_url?: string; avatar_url?: string } | null>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const cached = localStorage.getItem('user_info');
-        if (cached) return JSON.parse(cached);
-      } catch (e) {
-        console.error('[SettingsLayout] Failed to parse cached user_info:', e);
-      }
-    }
-    return null;
-  });
-  const [userInitials, setUserInitials] = useState<string>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const cached = localStorage.getItem('user_info');
-        if (cached) {
-          const parsed = JSON.parse(cached);
-          const name = parsed.name || 'Me';
-          const parts = name.split(/\s+/);
-          return parts.filter(Boolean).map((p: string) => p[0]).join('').toUpperCase().slice(0, 2) || 'ME';
-        }
-      } catch (e) { }
-    }
-    return 'ME';
-  });
+  const [userInfo, setUserInfo] = useState<{ email: string; name: string; image_url?: string; avatar_url?: string } | null>(null);
+  const [userInitials, setUserInitials] = useState<string>('ME');
 
   const [showLogoutMenu, setShowLogoutMenu] = useState(false);
   const [isCloudUser, setIsCloudUser] = useState<boolean>(isLoggedIn ?? false);
   const [storageLoaded, setStorageLoaded] = useState<boolean>(false);
+  const [hasCloudWorkspaces, setHasCloudWorkspaces] = useState<boolean>(false);
+
+  useEffect(() => {
+    const checkCloud = async () => {
+      if (isCloudUser && FEATURE_FLAGS.ENABLE_SHARING) {
+        const found = await checkHasCloudData();
+        setHasCloudWorkspaces(found);
+      }
+    };
+    checkCloud();
+  }, [isCloudUser]);
 
   useEffect(() => {
     const chromeAny = (window as any).chrome;
     let cleanup: (() => void) | undefined;
 
     if (chromeAny?.storage?.local) {
-      const loadData = () => {
-        chromeAny.storage.local.get(['user_info', 'user_name', 'accessToken'], (res: any) => {
-          console.log('[SettingsLayout] Loaded storage keys:', {
-            user_info: res.user_info,
-            user_name: res.user_name,
-            accessToken: res.accessToken
-          });
-          const nameVal = res.user_info?.name || res.user_name;
-          const name = typeof nameVal === 'string' ? nameVal : 'Me';
-          const parts = name.split(/\s+/);
-          const initials = parts.filter(Boolean).map((p: string) => p[0]).join('').toUpperCase().slice(0, 2);
-          if (initials) setUserInitials(initials);
-          if (res.user_info) {
-            setUserInfo(res.user_info);
-            if (typeof window !== 'undefined') {
-              try {
-                localStorage.setItem('user_info', JSON.stringify(res.user_info));
-              } catch (e) { }
-            }
-          } else if (res.user_name) {
-            const defaultInfo = { name: res.user_name, email: 'user@cmdos.dev' };
-            setUserInfo(defaultInfo);
-            if (typeof window !== 'undefined') {
-              try {
-                localStorage.setItem('user_info', JSON.stringify(defaultInfo));
-              } catch (e) { }
-            }
-          }
-
-          const token = res.accessToken;
-          const cloudUser = !!(token && typeof token === 'string' && token.startsWith('user_'));
-          setIsCloudUser(cloudUser);
-          setStorageLoaded(true);
+    const loadData = () => {
+      StorageManager.getItem(['user_info', 'user_name', 'accessToken']).then((res: any) => {
+        console.log('[SettingsLayout] Loaded storage keys:', {
+          user_info: res.user_info,
+          user_name: res.user_name,
+          accessToken: res.accessToken
         });
-      };
+        const nameVal = res.user_info?.name || res.user_name;
+        const name = typeof nameVal === 'string' ? nameVal : 'Me';
+        const parts = name.split(/\s+/);
+        const initials = parts.filter(Boolean).map((p: string) => p[0]).join('').toUpperCase().slice(0, 2);
+        if (initials) setUserInitials(initials);
+        if (res.user_info) {
+          setUserInfo(res.user_info);
+          StorageManager.setItem('user_info', res.user_info);
+        } else if (res.user_name) {
+          const defaultInfo = { name: res.user_name, email: 'user@cmdos.dev' };
+          setUserInfo(defaultInfo);
+          StorageManager.setItem('user_info', defaultInfo);
+        }
 
-      loadData();
+        const token = res.accessToken;
+        const cloudUser = !!(token && typeof token === 'string' && token.startsWith('user_'));
+        setIsCloudUser(cloudUser);
+        setStorageLoaded(true);
+      });
+    };
+
+    loadData();
 
       const listener = (changes: any, areaName: string) => {
         if (areaName === 'local') {
@@ -177,7 +158,7 @@ export const SettingsLayout: React.FC<SettingsLayoutProps> = ({ view, onClose, i
       items: [
         { id: 'workspaces', label: 'All Workspaces', icon: FiList, active: currentTab === 'allWorkspaces', onClick: () => useUIStore.getState().setView({ type: 'settings', section: 'allWorkspaces' }) },
         { id: 'googleDriveBackup', label: 'Drive & Backup', icon: FiCloud, active: currentTab === 'googleDriveBackup', onClick: () => useUIStore.getState().setView({ type: 'settings', section: 'googleDriveBackup' }) },
-        ...(isCloudUser
+        ...(isCloudUser && FEATURE_FLAGS.ENABLE_SHARING && hasCloudWorkspaces
           ? [{ id: 'importCloudData', label: 'Import Cloud Data', icon: FiCloud, active: currentTab === 'importCloudData', onClick: () => useUIStore.getState().setView({ type: 'settings', section: 'importCloudData' }) }]
           : []),
       ],
@@ -189,7 +170,7 @@ export const SettingsLayout: React.FC<SettingsLayoutProps> = ({ view, onClose, i
         { id: 'searchView', label: 'Settings', icon: FiSearch, active: currentTab === 'generalSettings' && currentSection === 'searchView', onClick: () => useUIStore.getState().setView({ type: 'settings', section: 'searchView' }) },
       ],
     },
-    ...(isCloudUser
+    ...(isCloudUser && FEATURE_FLAGS.ENABLE_SHARING
       ? [
         {
           title: 'ACCOUNT',
@@ -284,9 +265,6 @@ export const SettingsLayout: React.FC<SettingsLayoutProps> = ({ view, onClose, i
                   <div className="text-[11px] font-bold text-white truncate leading-tight">
                     {userInfo?.name || 'Me'}
                   </div>
-                  <div className="text-[9px] text-neutral-400 truncate mt-0.5">
-                    {userInfo?.email || ''}
-                  </div>
                 </div>
                 <FiChevronDown size={14} className="text-neutral-400 shrink-0" />
               </div>
@@ -296,32 +274,36 @@ export const SettingsLayout: React.FC<SettingsLayoutProps> = ({ view, onClose, i
               {/* Unified Login & GitHub Card Container */}
               <div className="border border-[var(--color-borderDefault)] bg-[var(--color-cardBg)] rounded-xl p-3 flex flex-col gap-2 shadow-sm">
                 {/* 1. Login Row */}
-                <div 
-                  onClick={() => {
-                    const chromeAny = (window as any)?.chrome;
-                    if (chromeAny?.tabs?.create) {
-                      chromeAny.tabs.create({ url: CMDOS_SIGN_UP_URL });
-                    } else {
-                      window.open(CMDOS_SIGN_UP_URL, '_blank');
-                    }
-                  }}
-                  className="flex items-center gap-3 cursor-pointer group hover:opacity-80 transition-opacity text-left w-full"
-                >
-                  <div className="w-8 h-8 rounded-full bg-indigo-500/25 border border-indigo-500/10 flex items-center justify-center shrink-0">
-                    <svg className="w-4 h-4 text-indigo-400" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
-                    </svg>
-                  </div>
-                  <div className="min-w-0 flex-grow">
-                    <div className="text-xs font-bold text-[var(--color-textPrimary)]">Login</div>
-                  </div>
-                  <svg className="w-3.5 h-3.5 text-[var(--color-textSecondary)] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                  </svg>
-                </div>
+                {FEATURE_FLAGS.ENABLE_SHARING && (
+                  <>
+                    <div 
+                      onClick={() => {
+                        const chromeAny = (window as any)?.chrome;
+                        if (chromeAny?.tabs?.create) {
+                          chromeAny.tabs.create({ url: CMDOS_SIGN_UP_URL });
+                        } else {
+                          window.open(CMDOS_SIGN_UP_URL, '_blank');
+                        }
+                      }}
+                      className="flex items-center gap-3 cursor-pointer group hover:opacity-80 transition-opacity text-left w-full"
+                    >
+                      <div className="w-8 h-8 rounded-full bg-indigo-500/25 border border-indigo-500/10 flex items-center justify-center shrink-0">
+                        <svg className="w-4 h-4 text-indigo-400" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+                        </svg>
+                      </div>
+                      <div className="min-w-0 flex-grow">
+                        <div className="text-xs font-bold text-[var(--color-textPrimary)]">Login</div>
+                      </div>
+                      <svg className="w-3.5 h-3.5 text-[var(--color-textSecondary)] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                      </svg>
+                    </div>
 
-                {/* Divider */}
-                <div className="border-t border-[var(--color-borderDefault)] my-1" />
+                    {/* Divider */}
+                    <div className="border-t border-[var(--color-borderDefault)] my-1" />
+                  </>
+                )}
 
                 {/* 2. GitHub Row */}
                 <a
@@ -401,3 +383,4 @@ export const SettingsLayout: React.FC<SettingsLayoutProps> = ({ view, onClose, i
 };
 
 export default SettingsLayout;
+

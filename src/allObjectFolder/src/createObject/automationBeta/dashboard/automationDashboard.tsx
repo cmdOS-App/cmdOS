@@ -34,7 +34,7 @@ type Folder = FolderData & { snippets?: any[] };
 import { runAutomation, type AutomationStep } from '../utilities/automation';
 import {
   getUserId,
-} from '../../../../../storage/_private/API/core/api';
+} from '../../../../../storage/API/core/api';
 import { createAutomation, updateAutomation } from '../automationData';
 import { HotkeyAssignButton } from '../../../../../shared-components/hotkeys';
 import { ShortcutAssignButton } from '../../../../../shared-components/shortcuts';;
@@ -192,7 +192,7 @@ const AutomationDashboard: React.FC<AgentPanelProps> = ({
         workspace_id: (automation as any).workspace_id || selectedWorkspaceId,
         category: 'automation',
       });
-      await apiSaveHotkey(automation.id.toString(), compoundId, newHotkey, 'automation', selectedTeam?.storageMode || 'cloud', true);
+      await apiSaveHotkey(automation.id.toString(), compoundId, newHotkey, 'automation', selectedTeam?.storageMode || 'local', true);
 
       // 3. specialized Automation Hotkeys Map (for background/search parity)
       const res = await chrome.storage.local.get('alts_automation_hotkeys');
@@ -231,7 +231,7 @@ const AutomationDashboard: React.FC<AgentPanelProps> = ({
         cleanShortcut,
         automation.name || 'Automation',
         'automation',
-        selectedTeam?.storageMode || 'cloud',
+        selectedTeam?.storageMode || 'local',
         true
       );
 
@@ -1430,3 +1430,4 @@ const AutomationDashboard: React.FC<AgentPanelProps> = ({
 };
 
 export default AutomationDashboard;
+

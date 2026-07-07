@@ -1,19 +1,15 @@
 import { db } from '../indexDB/dbConfig';
 import type { WorkspaceData } from '../../settings/allWorkspaceManager/workspaces/workspaceTypes';
+import { StorageManager } from './storageManager';
 
-const LAST_USED_WORKSPACE_KEY = 'lastUsedWorkspaceId';
+export const LAST_USED_WORKSPACE_KEY = 'lastUsedWorkspaceId';
 
 /**
- * Saves the given workspace ID to chrome.storage.local as the last used workspace.
+ * Saves the given workspace ID using StorageManager.
  */
-export async function setLastUsedWorkspaceId(workspaceId: string): Promise<void> {
-  if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-    await chrome.storage.local.set({ [LAST_USED_WORKSPACE_KEY]: workspaceId });
-  } else {
-    // Fallback for non-extension environments (e.g. web tests)
-    localStorage.setItem(LAST_USED_WORKSPACE_KEY, workspaceId);
-  }
-}
+export const setLastUsedWorkspaceId = async (workspaceId: string): Promise<void> => {
+  await StorageManager.setItem(LAST_USED_WORKSPACE_KEY, workspaceId);
+};
 
 /**
  * Smartly retrieves the best workspace to use for new notes.
@@ -23,15 +19,7 @@ export async function setLastUsedWorkspaceId(workspaceId: string): Promise<void>
  */
 export async function getSmartDefaultWorkspace(): Promise<WorkspaceData | undefined> {
   try {
-    let lastUsedId: string | null = null;
-    
-    // 1. FAST CACHE LOOKUP
-    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-      const data = await chrome.storage.local.get([LAST_USED_WORKSPACE_KEY]);
-      lastUsedId = data[LAST_USED_WORKSPACE_KEY];
-    } else {
-      lastUsedId = localStorage.getItem(LAST_USED_WORKSPACE_KEY);
-    }
+    let lastUsedId = await StorageManager.getItem(LAST_USED_WORKSPACE_KEY);
 
     // If we have a saved ID, quickly grab it from Dexie
     if (lastUsedId) {

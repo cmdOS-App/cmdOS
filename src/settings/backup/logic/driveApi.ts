@@ -16,6 +16,20 @@ export async function getDriveToken(): Promise<string> {
   });
 }
 
+export async function disconnectDrive(): Promise<void> {
+  return new Promise((resolve) => {
+    chrome.identity.getAuthToken({ interactive: false }, (token) => {
+      if (token) {
+        chrome.identity.removeCachedAuthToken({ token }, () => {
+          resolve();
+        });
+      } else {
+        resolve();
+      }
+    });
+  });
+}
+
 async function findOrCreateMainFolder(token: string): Promise<string> {
   // Since we use drive.appdata scope, we just use the reserved appDataFolder as our root.
   return 'appDataFolder';

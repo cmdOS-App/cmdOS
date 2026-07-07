@@ -14,7 +14,7 @@ import { handleAutomationAlarm } from '@automation/runtime_Execution_Engine/runn
 import { setupContextMenus, attachContextMenuListeners } from '@chatAgents/contextMenus';
 
 
-import { CMDOS_INSTALL_URL } from '@config/config';
+import { CMDOS_INSTALL_URL } from '@config/apiConfig';
 import { setupOmnibox } from './commandTerminal/omnibox/omniboxEvents';
 
 setupOmnibox();
@@ -50,15 +50,15 @@ import {
   handleAiMessage,
 } from '@chatAgents/runtimeExecutionEngine';
 import type { PendingAiSession } from '@chatAgents/runtimeExecutionEngine';
-// import { editTodo, updateSnippetRealtime, createSnippet } from '../../src/storage/_private/API/features/snippetApi';
-// import { cleanupStaleSnapshots } from '../../src/storage/_private/API/services/backupService';
+// import { editTodo, updateSnippetRealtime, createSnippet } from '../../src/storage/API/features/snippetApi';
+// import { cleanupStaleSnapshots } from '../../src/storage/API/services/backupService';
 import { handleBrowserWindowMessage } from '@browserWindows/index';
 import { handleSearchMessage } from '@browserData/index';
 import { handleHotkeyMessage } from '@hotkeys/hotkeys';
 import { handleExtractorMessage } from '@preBuiltCommands/extraction/index';
 import { handleElementPickerMessage } from '@automation/domSelector/visualPicker';
 import { handleAuthMessage } from '@_authentication/auth';
-// import { runDrivePullCheck } from '../../src/storage/_private/API/services/backup/continuationSync';
+// import { runDrivePullCheck } from '../../src/storage/API/services/backup/continuationSync';
 
 let newTabKeystrokeRecordingTabId: number | null = null;
 // Initial sync
@@ -384,7 +384,7 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
 
       const title = tab.title || new URL(tab.url).hostname;
 
-      const mode = session.openSettings?.autoSaveMode === 'last_saved' ? 'auto_save' : session.openSettings?.autoSaveMode;
+      const mode = session.openSettings?.autoSaveMode;
 
       if (mode === 'dont_save') {
         return;
@@ -439,8 +439,9 @@ chrome.tabs.onRemoved.addListener(async (tabId, removeInfo) => {
   // Handle 'last_saved' live tracking when a normal tab is closed
   if (removeInfo && removeInfo.windowId) {
     const session = activeSessions.get(removeInfo.windowId);
-    const mode = session.openSettings?.autoSaveMode === 'last_saved' ? 'auto_save' : session.openSettings?.autoSaveMode;
-    if (session && mode === 'auto_save') {
+    if (session) {
+      const mode = session.openSettings?.autoSaveMode;
+      if (mode === 'auto_save') {
       chrome.tabs.query({ windowId: removeInfo.windowId }, (tabs) => {
         const nonPinnedTabs = tabs.filter(t => t.id !== session.pinnedTabId && !t.url?.startsWith('chrome'));
         session.capturedUrls = nonPinnedTabs.map(t => t.url || '');
@@ -458,6 +459,7 @@ chrome.tabs.onRemoved.addListener(async (tabId, removeInfo) => {
           capturedNames: session.capturedNames,
         }).catch(() => {});
       });
+      }
     }
   }
 });
@@ -617,12 +619,18 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
 
 import { handleNewTodoAlarm } from './todos/newTodos';
+import { handleBackupAlarm } from '../../src/settings/backup/logic/scheduler';
 
 // --- ALARM LISTENER ---
 chrome.alarms.onAlarm.addListener(async alarm => {
   if (alarm.name === 'tasklabs-periodic-sync') {
     console.log('[BackgroundSync] Periodic sync alarm fired');
     await backgroundSync();
+    return;
+  }
+
+  if (alarm.name === 'cmdos-drive-backup-alarm') {
+    await handleBackupAlarm(alarm);
     return;
   }
 
@@ -655,9 +663,9 @@ chrome.alarms.onAlarm.addListener(async alarm => {
   if (alarm.name === 'tasklabs-auto-backup') {
     console.log('[AutoBackup] Triggering scheduled Google Drive backup');
     // try {
-    //   const { uploadToGoogleDrive } = await import('../../src/storage/_private/API/services/backup/drive');
-    //   const { updateAutoBackupSettings } = await import('../../src/storage/_private/API/services/backup/autoBackup');
-    //   const { nowUtc } = await import('../../src/storage/_private/API/services/metadataService');
+    //   const { uploadToGoogleDrive } = await import('../../src/storage/API/services/backup/drive');
+    //   const { updateAutoBackupSettings } = await import('../../src/storage/API/services/backup/autoBackup');
+    //   const { nowUtc } = await import('../../src/storage/API/services/metadataService');
     //   
     //   const success = await uploadToGoogleDrive();
     //   if (success) {
@@ -716,4 +724,5 @@ chrome.storage.onChanged.addListener(async (changes, areaName) => {
     }
   }
 });
+
 

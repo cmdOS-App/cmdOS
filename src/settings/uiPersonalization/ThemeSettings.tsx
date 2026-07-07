@@ -3,7 +3,7 @@ import { useAppearance } from '@extension/ui';
 import { motion } from 'framer-motion';
 import { FiCheck, FiUpload } from 'react-icons/fi';
 import { getCustomWallpaperBase64, setCustomWallpaperBase64 } from '../../storage/localStorage/uiCustomizationStorage';
-
+import { StorageManager } from '../../storage/localStorage/storageManager';
 const toTitleCase = (str: string) => {
   return str
     .replace(/[-_]/g, ' ')
@@ -43,9 +43,7 @@ const ThemeSettings: React.FC = () => {
       const base64 = event.target?.result as string;
       if (base64) {
         setCustomWallpaperPreview(base64);
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('wallpaper-id', 'custom');
-        }
+        StorageManager.setItem('wallpaper-id', 'custom');
         await setCustomWallpaperBase64(base64);
         await setWallpaper('custom');
       }
@@ -61,7 +59,7 @@ const ThemeSettings: React.FC = () => {
       const nameWithoutExt = filename.substring(0, filename.lastIndexOf('.'));
       return {
         id: filename,
-        label: toTitleCase(nameWithoutExt),
+        label: filename === 'car-race.png' ? 'Car Race' : toTitleCase(nameWithoutExt),
         src: `AltS_search_newtab/images/wallappear/${filename}`,
       };
     })

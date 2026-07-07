@@ -57,7 +57,7 @@ export default defineConfig({
       '@private-services/refreshCounterService': refreshCounterServicePath,
       '@private-services/userRefreshCounterService': userRefreshCounterServicePath,
       '@private-services': resolve(rootDir, '..', 'src', 'pages', 'Apis', 'services'),
-      '@config': resolve(srcDir, 'config'),
+      '@config': resolve(rootDir, '..', 'src', 'storage', 'API', 'core'),
       '@_userAnalytics': resolve(srcDir, '_private', 'userAnalytics_private'),
       '@automation': resolve(srcDir, 'automation'),
       '@todos': resolve(srcDir, 'todos'),

@@ -1,6 +1,7 @@
 'use client';
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
+import { createPortal } from 'react-dom';
 import { FaChevronRight, FaMoon, FaCheck, FaUsers, FaClock, FaRocket, FaChevronLeft, FaKeyboard, FaLink, FaTrash, FaExpand, FaCompress, FaShieldHalved } from 'react-icons/fa6';
 import { FaTimes, FaPlus, FaChevronDown, FaArrowRight, FaPlusSquare } from 'react-icons/fa';
 import { useDispatch } from 'react-redux';
@@ -9,9 +10,7 @@ import { useAppearance } from '@extension/ui';
 import { useDbStore } from '../storage/store/useDbStore';
 import { createWorkspace } from '../settings/allWorkspaceManager/workspaces/workspaceData';
 import { FiLoader, FiCloud, FiUpload, FiDatabase, FiFolder, FiHardDrive, FiRefreshCw, FiLayers, FiZap, FiInfo, FiLock, FiCode, FiArrowUpRight } from 'react-icons/fi';
-import shieldPodium from './shield_podium.png';
-import taskLabsLogo from '../shared-components/assets/tasklabs_logo.png';
-
+import { StorageManager } from '../storage/localStorage/storageManager';
 import { 
   getDriveToken, 
   listBackupsFromDrive, 
@@ -35,10 +34,11 @@ import { COMMANDS, AI_GROUP } from '../pages/AltS_search_newtab/src/components/s
 
 import { saveHotkey as apiSaveHotkey } from '../shared-components/hotkeys';
 
-import { getUserId } from '../storage/_private/API/core/api';
+import { getUserId, CMDOS_SIGN_UP_URL, checkHasCloudData } from '../storage/API/core/api';
 import { useHotkeyValidation } from '../shared-components/hotkeys';
 import { SpreadsheetMultiLinkInput } from '../pages/AltS_search_newtab/src/components/spreadsheetUi/ui/spreadsheetMultiLinkInput';
-import { CMDOS_SIGN_UP_URL } from '../storage/_private/API/core/apiConfig';
+import { FEATURE_FLAGS } from '../pages/AltS_search_newtab/src/utils/featureFlags';
+import { useUIStore } from '../shared-components/uiStateManager';
 
 // ==========================================
 // 1. Algorithms (from onboardingAlgos.ts)
@@ -719,27 +719,19 @@ function AddButton({ onClick, disabled }: { onClick?: () => void; disabled?: boo
 }
 
 async function saveCommandsToStorage(toAdd: CommandDefinition[]): Promise<void> {
-  if (typeof chrome === 'undefined' || !chrome.storage) return;
-  return new Promise(resolve => {
-    chrome.storage.local.get('alts_commands', (res: any) => {
-      const existing: CommandDefinition[] = Array.isArray(res.alts_commands) ? res.alts_commands : [];
-      const existingIds = new Set(existing.map((c: CommandDefinition) => c.id));
-      const merged = [...existing, ...toAdd.filter(c => !existingIds.has(c.id))];
-      chrome.storage.local.set({ alts_commands: merged }, resolve);
-    });
-  });
+  const res = await StorageManager.getItem('alts_commands');
+  const existing: CommandDefinition[] = Array.isArray(res) ? res : [];
+  const existingIds = new Set(existing.map((c: CommandDefinition) => c.id));
+  const merged = [...existing, ...toAdd.filter(c => !existingIds.has(c.id))];
+  await StorageManager.setItem('alts_commands', merged);
 }
 
 async function saveCommandsToDraft(toAdd: CommandDefinition[]): Promise<void> {
-  if (typeof chrome === 'undefined' || !chrome.storage) return;
-  return new Promise(resolve => {
-    chrome.storage.local.get('alts_commands_draft', (res: any) => {
-      const existing: CommandDefinition[] = Array.isArray(res.alts_commands_draft) ? res.alts_commands_draft : [];
-      const existingIds = new Set(existing.map((c: CommandDefinition) => c.id));
-      const merged = [...existing, ...toAdd.filter(c => !existingIds.has(c.id))];
-      chrome.storage.local.set({ alts_commands_draft: merged }, resolve);
-    });
-  });
+  const res = await StorageManager.getItem('alts_commands_draft');
+  const existing: CommandDefinition[] = Array.isArray(res) ? res : [];
+  const existingIds = new Set(existing.map((c: CommandDefinition) => c.id));
+  const merged = [...existing, ...toAdd.filter(c => !existingIds.has(c.id))];
+  await StorageManager.setItem('alts_commands_draft', merged);
 }
 
 async function saveLinksDraft(
@@ -747,7 +739,6 @@ async function saveLinksDraft(
   singleLinks: LinkItem[],
   hotkeys: Record<string, string>,
 ): Promise<void> {
-  if (typeof chrome === 'undefined' || !chrome.storage) return;
   const draftPayload = {
     linkGroups: linkGroups.map(g => ({
       id: g.id,
@@ -761,30 +752,22 @@ async function saveLinksDraft(
       hotkey: hotkeys[l.id] || '',
     })),
   };
-  return new Promise(resolve => {
-    chrome.storage.local.set({ Onboarded_links: draftPayload }, resolve);
-  });
+  await StorageManager.setItem('Onboarded_links', draftPayload);
 }
 
 async function resolvePersonalTeamId(): Promise<any | null> {
-  if (typeof chrome === 'undefined' || !chrome.storage) return null;
-  return new Promise(resolve => {
-    chrome.storage.local.get('localOrganizations', (res: any) => {
-      const localOrgs = res.localOrganizations;
-      if (!Array.isArray(localOrgs)) {
-        console.warn('[OnBoardTemplates] localOrganizations not found or not an array');
-        resolve(null);
-        return;
-      }
-      const personalTeam = localOrgs.find((team: any) => team.is_personal_space === true);
-      if (personalTeam?.team_id) {
-        resolve(personalTeam);
-      } else {
-        console.warn('[OnBoardTemplates] No personal space team found');
-        resolve(null);
-      }
-    });
-  });
+  const localOrgs = await StorageManager.getItem('localOrganizations');
+  if (!Array.isArray(localOrgs)) {
+    console.warn('[OnBoardTemplates] localOrganizations not found or not an array');
+    return null;
+  }
+  const personalTeam = localOrgs.find((team: any) => team.is_personal_space === true);
+  if (personalTeam?.team_id) {
+    return personalTeam;
+  } else {
+    console.warn('[OnBoardTemplates] No personal space team found');
+    return null;
+  }
 }
 
 async function createLinksDirectly(
@@ -800,7 +783,7 @@ async function createLinksDirectly(
       return [];
     }
     const teamId = teamObj.team_id;
-    const storageMode = teamObj.storageMode ?? 'cloud';
+    const storageMode = teamObj.storageMode ?? 'local';
     const wsResult = await createWorkspace('Your shortcuts');
     const workspaceId = wsResult.id;
     if (!workspaceId) {
@@ -1127,8 +1110,7 @@ export function OnboardingManager({ onFinish, isLoggedIn, isDark = true }: Onboa
   }, []);
 
   useEffect(() => {
-    if (typeof chrome === 'undefined' || !chrome.storage) return;
-    chrome.storage.local.get('alts_commands', () => {
+    StorageManager.getItem('alts_commands').then(() => {
       const defaultCmds: Record<string, boolean> = {};
       ONBOARDING_COMMANDS.forEach(cmd => {
         defaultCmds[cmd.id] = true;
@@ -2020,12 +2002,24 @@ interface OnboardingCardsProps {
   isReturningUser?: boolean;
 }
 
-type Step = 'quote' | 'get_started' | 'theme' | 'organization' | 'onboarding' | 'restore_options' | 'restore_success' | 'tutorial';
+type Step = 'quote' | 'get_started' | 'theme' | 'organization' | 'onboarding' | 'restore_options' | 'restore_success' | 'cloud_migration_onboarding' | 'tutorial';
 
 const OnboardingCards = React.forwardRef<HTMLDivElement, OnboardingCardsProps>(({ onClose, isLoggedIn, isReturningUser }, ref) => {
   const [step, setStep] = useState<Step>('quote');
   const dispatch = useDispatch();
   const { themeId, setTheme: setThemeProfile, wallpaperId, setWallpaper } = useAppearance();
+
+  const [hasCloudWorkspaces, setHasCloudWorkspaces] = useState(false);
+
+  useEffect(() => {
+    const checkCloudData = async () => {
+      if (isLoggedIn && FEATURE_FLAGS.ENABLE_SHARING) {
+        const found = await checkHasCloudData();
+        setHasCloudWorkspaces(found);
+      }
+    };
+    checkCloudData();
+  }, [isLoggedIn]);
 
   const [shouldShowOrgStep, setShouldShowOrgStep] = useState(false);
   const [orgName, setOrgName] = useState('');
@@ -2038,6 +2032,8 @@ const OnboardingCards = React.forwardRef<HTMLDivElement, OnboardingCardsProps>((
   const [restoreError, setRestoreError] = useState<string | null>(null);
   const [restoredSummary, setRestoredSummary] = useState<any | null>(null);
   const [isRestoring, setIsRestoring] = useState(false);
+
+
 
   // Google Drive states
   const [driveStatus, setDriveStatus] = useState<'checking' | 'disconnected' | 'connected' | 'connecting' | 'listing'>('disconnected');
@@ -2159,7 +2155,7 @@ const OnboardingCards = React.forwardRef<HTMLDivElement, OnboardingCardsProps>((
   };
 
   React.useEffect(() => {
-    chrome.storage.local.get(['localOrganizations', 'accessToken'], (res) => {
+    StorageManager.getItem(['localOrganizations', 'accessToken']).then((res) => {
       const localOrgs = res.localOrganizations || [];
       const hasNoLocal = !Array.isArray(localOrgs) || localOrgs.length === 0;
       if (hasNoLocal) {
@@ -2213,7 +2209,9 @@ const OnboardingCards = React.forwardRef<HTMLDivElement, OnboardingCardsProps>((
   // Temporarily disable 3rd step for everyone per user request
   const shouldShowOnboarding = false; // !isReturningUser;
 
-  return (
+  if (typeof window === 'undefined') return null;
+
+  return createPortal(
     <motion.div
       ref={ref}
       initial={{ opacity: 0 }}
@@ -2802,20 +2800,39 @@ const OnboardingCards = React.forwardRef<HTMLDivElement, OnboardingCardsProps>((
                 {/* Auth/Restore buttons positioned above/outside the card borderline (top right) */}
                 <div className="w-full flex justify-end mb-2 pr-1">
                   <div className="flex items-center gap-1.5 text-[11px] select-none">
-                    <span className="text-neutral-400 font-medium">Existing user?</span>
-                    <button 
-                      onClick={() => {
-                        if (typeof chrome !== 'undefined' && chrome.tabs) {
-                          chrome.tabs.create({ url: CMDOS_SIGN_UP_URL });
-                        } else {
-                          window.open(CMDOS_SIGN_UP_URL, '_blank');
-                        }
-                      }} 
-                      className="text-[#8b5cf6] hover:text-[#8b5cf6]/80 font-semibold bg-transparent border-none p-0 cursor-pointer transition-colors"
-                    >
-                      Sign In
-                    </button>
-                    <span className="text-white/10">|</span>
+                    {FEATURE_FLAGS.ENABLE_SHARING && (
+                      <>
+                        {isLoggedIn ? (
+                          <button 
+                            onClick={async () => {
+                              await StorageManager.setItem('tutorial_watched', true);
+                              onClose();
+                              useUIStore.getState().setView({ type: 'settings', section: 'importCloudData' });
+                            }} 
+                            className="text-[#8b5cf6] hover:text-[#8b5cf6]/80 font-semibold bg-transparent border-none p-0 cursor-pointer transition-colors"
+                          >
+                            Import Cloud Data
+                          </button>
+                        ) : (
+                          <>
+                            <span className="text-neutral-400 font-medium">Existing user?</span>
+                            <button 
+                              onClick={() => {
+                                if (typeof chrome !== 'undefined' && chrome.tabs) {
+                                  chrome.tabs.create({ url: CMDOS_SIGN_UP_URL });
+                                } else {
+                                  window.open(CMDOS_SIGN_UP_URL, '_blank');
+                                }
+                              }} 
+                              className="text-[#8b5cf6] hover:text-[#8b5cf6]/80 font-semibold bg-transparent border-none p-0 cursor-pointer transition-colors"
+                            >
+                              Sign In
+                            </button>
+                          </>
+                        )}
+                        <span className="text-white/10">|</span>
+                      </>
+                    )}
                     <button 
                       onClick={() => setStep('restore_options')} 
                       className="text-[#8b5cf6] hover:text-[#8b5cf6]/80 font-semibold bg-transparent border-none p-0 cursor-pointer transition-colors"
@@ -2955,6 +2972,7 @@ const OnboardingCards = React.forwardRef<HTMLDivElement, OnboardingCardsProps>((
             </motion.div>
           )}
 
+
           {/* ── Step 5: Tutorial Dashboard ── */}
           {step === 'tutorial' && (
             <motion.div
@@ -2970,8 +2988,10 @@ const OnboardingCards = React.forwardRef<HTMLDivElement, OnboardingCardsProps>((
             </motion.div>
           )}
         </AnimatePresence>
-      </motion.div>
+      </motion.div>,
+      document.body
   );
 });
 
 export default OnboardingCards;
+
